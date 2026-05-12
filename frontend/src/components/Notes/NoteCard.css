@@ -1,0 +1,119 @@
+.note-card {
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(167, 139, 250, 0.08);
+  border: 1px solid rgba(202, 196, 212, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.note-card:hover {
+  border-color: #a78bfa;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(167, 139, 250, 0.12);
+}
+
+.note-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.note-title {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+  color: #1d1a21;
+  transition: color 0.2s;
+  margin: 0;
+  flex: 1;
+}
+
+.note-card:hover .note-title {
+  color: #674bb5;
+}
+
+.note-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.note-card:hover .note-actions {
+  opacity: 1;
+}
+
+.note-action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #7a7583;
+  transition: all 0.2s;
+}
+
+.note-action-btn:hover {
+  background-color: #ece6f0;
+  color: #674bb5;
+}
+
+.note-action-btn.delete-btn:hover {
+  background-color: #ffdad6;
+  color: #ba1a1a;
+}
+
+.note-action-btn .material-symbols-outlined {
+  font-size: 20px;
+}
+
+.note-preview {
+  font-size: 16px;
+  line-height: 24px;
+  color: #494552;
+  display: -webkit-box;
+  /* -webkit-line-clamp: 3; */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+}
+
+.note-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
+.note-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.note-tag {
+  background-color: rgba(167, 139, 250, 0.2);
+  color: #674bb5;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 14px;
+}
+
+.note-date {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 14px;
+  color: #7a7583;
+}

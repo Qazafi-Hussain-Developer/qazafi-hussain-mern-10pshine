@@ -1,0 +1,133 @@
+.sidebar {
+  height: 100vh;
+  width: 256px;
+  position: fixed;
+  left: 0;
+  top: 0;
+  background-color: #f8f1fb;
+  border-right: 1px solid #cac4d4;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 8px;
+  z-index: 50;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 8px;
+  margin-bottom: 24px;
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  background-color: #a78bfa;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #3c1989;
+}
+
+.logo-icon .material-symbols-outlined {
+  font-size: 24px;
+}
+
+.logo-title {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 28px;
+  color: #674bb5;
+}
+
+.logo-subtitle {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 14px;
+  color: #494552;
+  opacity: 0.7;
+}
+
+.create-note-btn {
+  background-color: #a78bfa;
+  color: #3c1989;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 12px 16px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0 16px 0;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.create-note-btn:hover {
+  opacity: 0.9;
+  transform: scale(0.98);
+}
+
+.create-note-btn:active {
+  transform: scale(0.96);
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #494552;
+  text-decoration: none;
+  transition: all 0.15s;
+  background: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav-link:hover {
+  background-color: #ece6f0;
+}
+
+.nav-link.active {
+  background-color: #8455ef;
+  color: #fffbff;
+}
+
+.nav-link .material-symbols-outlined {
+  font-size: 20px;
+}
+
+.sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid #cac4d4;
+  padding-top: 8px;
+}
+
+.logout-btn {
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
