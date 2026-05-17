@@ -13,62 +13,60 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
+  const [token, setToken] = useState(null)
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    const userData = localStorage.getItem('user')
+    const storedToken = localStorage.getItem('token')
+    const storedUser = localStorage.getItem('user')
     
-    if (token && userData) {
-      setUser(JSON.parse(userData))
+    if (storedToken && storedUser) {
+      setToken(storedToken)
+      setUser(JSON.parse(storedUser))
     }
     setLoading(false)
   }, [])
 
-  const login = async (email, password) => {
-    try {
-      // Replace with actual API call
-      const response = { token: 'mock-token', user: { name: 'User', email } }
-      
-      localStorage.setItem('token', response.token)
-      localStorage.setItem('user', JSON.stringify(response.user))
-      setUser(response.user)
-      navigate('/')
-      return { success: true }
-    } catch (error) {
-      return { success: false, error: error.message }
-    }
+  const login = (userData, authToken) => {
+    setUser(userData)
+    setToken(authToken)
+    localStorage.setItem('token', authToken)
+    localStorage.setItem('user', JSON.stringify(userData))
+    navigate('/dashboard')
   }
 
-  const signup = async (name, email, password) => {
-    try {
-      // Replace with actual API call
-      const response = { token: 'mock-token', user: { name, email } }
-      
-      localStorage.setItem('token', response.token)
-      localStorage.setItem('user', JSON.stringify(response.user))
-      setUser(response.user)
-      navigate('/')
-      return { success: true }
-    } catch (error) {
-      return { success: false, error: error.message }
-    }
+  const signup = (userData, authToken) => {
+    setUser(userData)
+    setToken(authToken)
+    localStorage.setItem('token', authToken)
+    localStorage.setItem('user', JSON.stringify(userData))
+    navigate('/dashboard')
   }
 
   const logout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     setUser(null)
+    setToken(null)
     navigate('/login')
+  }
+
+  // ✅ Add this function to update user (for avatar/profile updates)
+  const updateUser = (updatedUserData) => {
+    const newUserData = { ...user, ...updatedUserData }
+    setUser(newUserData)
+    localStorage.setItem('user', JSON.stringify(newUserData))
   }
 
   const value = {
     user,
+    token,
     loading,
     login,
     signup,
     logout,
+    updateUser,  // ✅ Export this function
     isAuthenticated: !!user
   }
 
@@ -79,4 +77,4 @@ export const AuthProvider = ({ children }) => {
   )
 }
 
-export default AuthContext
+export default AuthContext  

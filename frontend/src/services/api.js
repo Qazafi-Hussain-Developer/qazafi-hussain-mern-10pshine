@@ -12,21 +12,26 @@ export const api = {
       })
       return response.json()
     },
+    // ✅ Fix: Change from /auth/signup to /auth/register
     signup: async (name, email, password) => {
-      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password })
       })
       return response.json()
     },
+    // ✅ Fix: Remove logout if backend doesn't have it
     logout: async () => {
       const token = localStorage.getItem('token')
-      const response = await fetch(`${API_BASE_URL}/auth/logout`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      return response.json()
+      // Optional: Call backend logout if you have it
+      // const response = await fetch(`${API_BASE_URL}/auth/logout`, {
+      //   method: 'POST',
+      //   headers: { 'Authorization': `Bearer ${token}` }
+      // })
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+      return { success: true }
     }
   },
 
@@ -82,16 +87,17 @@ export const api = {
 
   // User endpoints
   user: {
+    // ✅ Fix: Change from /user/profile to /auth/profile
     getProfile: async () => {
       const token = localStorage.getItem('token')
-      const response = await fetch(`${API_BASE_URL}/user/profile`, {
+      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       return response.json()
     },
     updateProfile: async (profileData) => {
       const token = localStorage.getItem('token')
-      const response = await fetch(`${API_BASE_URL}/user/profile`, {
+      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

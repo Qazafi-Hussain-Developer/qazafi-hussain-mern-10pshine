@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import './TopNavbar.css'
 
 const TopNavbar = ({ onSearch }) => {
   const navigate = useNavigate()
+  const { user } = useAuth()  // ✅ Get user from AuthContext instead of localStorage
   const [searchQuery, setSearchQuery] = useState('')
-  const user = JSON.parse(localStorage.getItem('user') || '{}')
 
   const handleSearch = (e) => {
     setSearchQuery(e.target.value)
@@ -13,6 +14,10 @@ const TopNavbar = ({ onSearch }) => {
       onSearch(e.target.value)
     }
   }
+
+  // Get avatar URL from user context
+  const avatarUrl = user?.avatar || null
+  const userInitial = user?.name?.charAt(0) || 'U'
 
   return (
     <header className="top-navbar">
@@ -35,10 +40,13 @@ const TopNavbar = ({ onSearch }) => {
           <span className="material-symbols-outlined">settings</span>
         </button>
         <div className="profile-avatar" onClick={() => navigate('/profile')}>
-          <img 
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAD7bMaZsJJD_R-EaWI5KVwQqV_L5y9GEKbTxOJiD-DUr5izKxioj1cWBQvGxzlbCUue94ukVAzKha0NDIYDafGyiT2zXRtcg3Cgb_wZYvguCzs6Zu_-4Xqfm2r5GkbY1jIH4gdbls1NptL8i1kQbGk-qqAXmUQpbv0t8p1OKKLoPwDvugmIzc3tpzZcmrQd8MckqRIfAUSGEcTUB7bggzEU1AP-_Fmrw_GQxBaFMxOgFCaJo2nom7zWvzF8c63XGj4JGMZH4OG3D8"
-            alt="Profile"
-          />
+          {avatarUrl ? (
+            <img src={avatarUrl} alt="Profile" className="avatar-image" />
+          ) : (
+            <div className="avatar-initial">
+              {userInitial}
+            </div>
+          )}
         </div>
       </div>
     </header>

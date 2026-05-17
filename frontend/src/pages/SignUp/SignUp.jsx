@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import './SignUp.css'
 
 const SignUp = () => {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -11,6 +13,7 @@ const SignUp = () => {
     confirmPassword: ''
   })
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
   const handleChange = (e) => {
@@ -23,32 +26,62 @@ const SignUp = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
+    setLoading(true)
+
+    // Validation
+    if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
+      setError('Please fill in all fields')
+      setLoading(false)
       return
     }
-    
-    if (formData.name && formData.email && formData.password) {
-      localStorage.setItem('token', 'mock-token')
-      localStorage.setItem('user', JSON.stringify({ 
-        name: formData.name,
-        email: formData.email 
-      }))
-      navigate('/')
-    } else {
-      setError('Please fill in all fields')
+
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match')
+      setLoading(false)
+      return
+    }
+
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters')
+      setLoading(false)
+      return
+    }
+
+    try {
+      // Real API call to your backend
+      const response = await fetch('http://localhost:5000/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        // Auto-login after successful registration
+        login(data.user, data.token)
+        // Redirect to dashboard
+        navigate('/dashboard')
+      } else {
+        setError(data.message || 'Registration failed. Please try again.')
+      }
+    } catch (err) {
+      console.error('Signup error:', err)
+      setError('Unable to connect to server. Please make sure the backend is running on port 5000.')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleSocialSignUp = (provider) => {
+  const handleSocialSignUp = async (provider) => {
     console.log(`Sign up with ${provider}`)
-    localStorage.setItem('token', 'mock-token')
-    localStorage.setItem('user', JSON.stringify({ 
-      name: 'New User',
-      email: 'user@example.com' 
-    }))
-    navigate('/')
+    // Social login can be implemented later
   }
 
   return (
@@ -91,9 +124,11 @@ const SignUp = () => {
                       id="name"
                       name="name"
                       placeholder="Enter your name"
+                      autoComplete="name"
                       value={formData.name}
                       onChange={handleChange}
                       required
+                      disabled={loading}
                     />
                   </div>
                 </div>
@@ -107,9 +142,11 @@ const SignUp = () => {
                       id="email"
                       name="email"
                       placeholder="name@example.com"
+                      autoComplete="email"
                       value={formData.email}
                       onChange={handleChange}
                       required
+                      disabled={loading}
                     />
                   </div>
                 </div>
@@ -123,9 +160,11 @@ const SignUp = () => {
                       id="password"
                       name="password"
                       placeholder="Create a password"
+                      autoComplete="new-password"
                       value={formData.password}
                       onChange={handleChange}
                       required
+                      disabled={loading}
                     />
                     <button 
                       type="button"
@@ -137,6 +176,7 @@ const SignUp = () => {
                       </span>
                     </button>
                   </div>
+                  <small className="password-hint">Password must be at least 6 characters</small>
                 </div>
 
                 <div className="form-group">
@@ -148,15 +188,17 @@ const SignUp = () => {
                       id="confirmPassword"
                       name="confirmPassword"
                       placeholder="Confirm your password"
+                      autoComplete="new-password"
                       value={formData.confirmPassword}
                       onChange={handleChange}
                       required
+                      disabled={loading}
                     />
                   </div>
                 </div>
 
-                <button type="submit" className="create-button">
-                  Create Account
+                <button type="submit" className="create-button" disabled={loading}>
+                  {loading ? 'Creating Account...' : 'Create Account'}
                   <span className="material-symbols-outlined">arrow_forward</span>
                 </button>
               </form>
@@ -166,7 +208,7 @@ const SignUp = () => {
               </div>
 
               <div className="social-buttons">
-                <button onClick={() => handleSocialSignUp('Google')} className="social-btn">
+                <button onClick={() => handleSocialSignUp('Google')} className="social-btn" disabled={loading}>
                   <svg className="social-icon" viewBox="0 0 24 24" width="20" height="20">
                     <path fill="#EA4335" d="M5.26620003,9.76452941 C6.19878757,6.93863203 8.85444915,4.90909091 12,4.90909091 C13.6909091,4.90909091 15.2181818,5.50909091 16.4181818,6.49090909 L19.9090909,3 C17.7818182,1.14545455 15.0545455,0 12,0 C7.27006974,0 3.1977497,2.69829785 1.23999023,6.65002441 L5.26620003,9.76452941 Z"/>
                     <path fill="#34A853" d="M5.26620003,9.76452941 C3.22782177,12.0182951 3.22782177,15.0983862 5.26620003,17.3521519 L5.26620003,9.76452941 Z" transform="translate(0, 0.5)"/>
@@ -175,7 +217,7 @@ const SignUp = () => {
                   </svg>
                   Google
                 </button>
-                <button onClick={() => handleSocialSignUp('Apple')} className="social-btn">
+                <button onClick={() => handleSocialSignUp('Apple')} className="social-btn" disabled={loading}>
                   <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>ios</span>
                   Apple
                 </button>

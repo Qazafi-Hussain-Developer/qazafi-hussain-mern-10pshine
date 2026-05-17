@@ -2,21 +2,22 @@ import React from 'react'
 import './Toolbar.css'
 
 const Toolbar = ({ onFormat }) => {
+  // Define tools with unique keys
   const tools = [
-    { command: 'bold', icon: 'format_bold', title: 'Bold' },
-    { command: 'italic', icon: 'format_italic', title: 'Italic' },
-    { command: 'underline', icon: 'format_underlined', title: 'Underline' },
-    { divider: true },
-    { command: 'formatBlock', value: 'h1', icon: 'format_h1', title: 'Heading 1' },
-    { command: 'formatBlock', value: 'h2', icon: 'format_h2', title: 'Heading 2' },
-    { divider: true },
-    { command: 'insertUnorderedList', icon: 'format_list_bulleted', title: 'Bullet List' },
-    { command: 'insertOrderedList', icon: 'format_list_numbered', title: 'Numbered List' },
-    { divider: true },
-    { command: 'createLink', icon: 'link', title: 'Insert Link' },
-    { command: 'insertImage', icon: 'image', title: 'Insert Image' },
-    { command: 'insertHTML', icon: 'code', title: 'Code Block' },
-    { divider: true },
+    { command: 'bold', icon: 'format_bold', title: 'Bold', key: 'bold' },
+    { command: 'italic', icon: 'format_italic', title: 'Italic', key: 'italic' },
+    { command: 'underline', icon: 'format_underlined', title: 'Underline', key: 'underline' },
+    { divider: true, key: 'divider1' },
+    { command: 'formatBlock', value: 'h1', icon: 'format_h1', title: 'Heading 1', key: 'heading1' },
+    { command: 'formatBlock', value: 'h2', icon: 'format_h2', title: 'Heading 2', key: 'heading2' },
+    { divider: true, key: 'divider2' },
+    { command: 'insertUnorderedList', icon: 'format_list_bulleted', title: 'Bullet List', key: 'bulletList' },
+    { command: 'insertOrderedList', icon: 'format_list_numbered', title: 'Numbered List', key: 'numberedList' },
+    { divider: true, key: 'divider3' },
+    { command: 'createLink', icon: 'link', title: 'Insert Link', key: 'insertLink' },
+    { command: 'insertImage', icon: 'image', title: 'Insert Image', key: 'insertImage' },
+    { command: 'insertHTML', icon: 'code', title: 'Code Block', key: 'codeBlock' },
+    { divider: true, key: 'divider4' },
   ]
 
   const handleClick = (tool) => {
@@ -34,6 +35,7 @@ const Toolbar = ({ onFormat }) => {
         codeElem.textContent = code
         pre.appendChild(codeElem)
         document.execCommand('insertHTML', false, pre.outerHTML)
+        if (onFormat) onFormat('insertHTML', code)
       }
     } else if (tool.value) {
       onFormat(tool.command, tool.value)
@@ -44,13 +46,13 @@ const Toolbar = ({ onFormat }) => {
 
   return (
     <div className="toolbar">
-      {tools.map((tool, index) => {
+      {tools.map((tool) => {
         if (tool.divider) {
-          return <div key={`divider-${index}`} className="toolbar-divider" />
+          return <div key={tool.key} className="toolbar-divider" />
         }
         return (
           <button
-            key={tool.command}
+            key={tool.key}
             className="toolbar-btn"
             onClick={() => handleClick(tool)}
             title={tool.title}
@@ -61,7 +63,7 @@ const Toolbar = ({ onFormat }) => {
         )
       })}
       <div className="toolbar-spacer" />
-      <button className="toolbar-btn" title="More options">
+      <button className="toolbar-btn" title="More options" key="moreOptions">
         <span className="material-symbols-outlined">more_vert</span>
       </button>
     </div>
