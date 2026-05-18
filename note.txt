@@ -1,0 +1,231 @@
+# MERN (Node.js + React.js) Project
+
+## Notes App
+
+## Project Overview
+
+This project aims to build a **full-stack web application** that allows users to **create, edit, and delete notes**. It includes **user authentication** to ensure privacy for each user and integrates **application logging, exception handling, unit testing, and database support (MySQL / PostgreSQL / MongoDB).**
+
+---
+
+# Technology Stack
+
+### Required Technologies & Tools
+
+* **Node.js**
+* **React.js**
+* **MySQL / PostgreSQL / MongoDB**
+* **Pino Logger**
+* **Mocha / Chai**
+* **Jest**
+* **SonarQube**
+* **Git**
+
+---
+
+# Key Features
+
+## 1. User Authentication & Authorization
+
+* Users can **Sign Up**
+* Users can **Log In**
+* Users can **Log Out**
+* Notes are associated with individual authenticated users
+
+---
+
+## 2. Note Management
+
+* Create new notes
+* Edit existing notes
+* Delete notes
+* Rich Text Editing support for better user experience
+
+---
+
+## 3. Application Logging (Pino Logger)
+
+* Implement logging throughout the application
+* Log important events
+* Log errors
+* Log HTTP requests and responses
+* Log user activities
+
+---
+
+## 4. Database Integration (MySQL / PostgreSQL / MongoDB)
+
+Design database schema for:
+
+* Users
+* Notes
+* Related data
+
+---
+
+## 5. Exception Handling
+
+* Implement global exception handling middleware
+* Gracefully handle errors
+* Provide meaningful error messages
+* Log exceptions using Pino
+
+---
+
+## 6. Unit Testing
+
+### Backend Testing
+
+Use **Mocha / Chai** to test:
+
+* Controllers
+* Services
+* Data access layers
+
+### Frontend Testing
+
+Use **Jest** to test:
+
+* React components
+* UI functionality
+
+---
+
+## 7. SonarQube Integration
+
+* Analyze code quality
+* Identify bugs and vulnerabilities
+* Configure JavaScript / TypeScript rules
+
+---
+
+## 8. React.js Frontend
+
+Build a responsive frontend with:
+
+* Dashboard
+* Notes list
+* User profile
+* Rich text editor
+* Authentication pages
+
+---
+
+## 9. Git Version Control
+
+* Use Git for source control
+* Apply branching strategy
+* Use merge workflow
+
+---
+
+## 10. Node.js Backend
+
+Create REST APIs for:
+
+* Create Note
+* Read Notes
+* Update Note
+* Delete Note
+
+Include:
+
+* Logging with Pino
+* Unit testing with Mocha / Chai
+
+---
+
+# Additional Features (Optional)
+
+## Real-Time Updates
+
+* Use Socket.IO for live updates
+
+## Export / Import Notes
+
+* Export notes to file
+* Import notes from file
+
+## Search & Filter
+
+* Search notes
+* Filter notes by category/date
+
+---
+
+# Application Screens
+
+---
+
+## 1. Sign Up / Log In Screen
+
+### Components:
+
+* Sign Up Form
+* Log In Form
+
+### Operations:
+
+* User registration
+* Authentication
+* Redirect to dashboard after login
+
+---
+
+## 2. Dashboard (List of Notes)
+
+### Components:
+
+* List of user notes
+* Create Note button
+
+### Operations:
+
+* Fetch user notes from backend
+* Display notes
+* Navigate to editor
+
+---
+
+## 3. Note Editor Screen / Modal
+
+### Components:
+
+* Rich Text Editor
+* Save Button
+* Cancel Button
+
+### Operations:
+
+* Create note
+* Edit note
+* Save note to backend
+* Return to dashboard
+
+---
+
+## 4. User Profile Screen (Optional)
+
+### Components:
+
+* User details
+* Logout button
+
+### Operations:
+
+* Show user info
+* Logout user
+
+---
+
+# Submission Details
+
+* **Status:** Pending
+* **Due Date:** Jun 08, 2026 at 5:00 AM
+* **Remaining Time:** 36 Days
+* **Submission:** Open Submission Form
+
+npm install react-router-dom react-quill axios
+npm install --save-dev @testing-library/react @testing-library/jest-dom
+
+

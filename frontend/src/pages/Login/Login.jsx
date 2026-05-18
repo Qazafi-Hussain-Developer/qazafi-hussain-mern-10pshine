@@ -1,14 +1,17 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import './Login.css'
 
 const Login = () => {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   })
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const handleChange = (e) => {
     setFormData({
@@ -20,23 +23,53 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    
-    // Mock authentication - Replace with actual API call
-    if (formData.email && formData.password) {
-      localStorage.setItem('token', 'mock-token')
-      localStorage.setItem('user', JSON.stringify({ 
-        name: 'Julian',
-        email: formData.email 
-      }))
-      navigate('/')
-    } else {
+    setLoading(true)
+
+    // Validation
+    if (!formData.email || !formData.password) {
       setError('Please enter email and password')
+      setLoading(false)
+      return
+    }
+
+    try {
+      console.log('Sending login request for:', formData.email)
+      
+      // Real API call to your backend
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password
+        })
+      })
+
+      const data = await response.json()
+      console.log('Response status:', response.status)
+      console.log('Response data:', data)
+
+      if (response.ok && data.success) {
+        // Store user data and token via AuthContext
+        login(data.user, data.token)
+        // Redirect to dashboard
+        navigate('/dashboard')
+      } else {
+        setError(data.message || 'Invalid email or password')
+      }
+    } catch (err) {
+      console.error('Login error details:', err)
+      setError('Unable to connect to server. Please make sure the backend is running on port 5000.')
+    } finally {
+      setLoading(false)
     }
   }
 
   const handleSocialLogin = (provider) => {
     console.log(`Login with ${provider}`)
-    // Implement social login
+    // Social login can be implemented later
   }
 
   return (
@@ -67,7 +100,9 @@ const Login = () => {
                   placeholder="name@example.com"
                   value={formData.email}
                   onChange={handleChange}
+                  autoComplete="username"
                   required
+                  disabled={loading}
                 />
               </div>
             </div>
@@ -84,15 +119,17 @@ const Login = () => {
                   id="password"
                   name="password"
                   placeholder="••••••••"
+                  autoComplete="current-password"
                   value={formData.password}
                   onChange={handleChange}
                   required
+                  disabled={loading}
                 />
               </div>
             </div>
 
-            <button type="submit" className="signin-button">
-              Sign In
+            <button type="submit" className="signin-button" disabled={loading}>
+              {loading ? 'Signing in...' : 'Sign In'}
               <span className="material-symbols-outlined">login</span>
             </button>
           </form>

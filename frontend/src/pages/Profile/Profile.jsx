@@ -1,35 +1,86 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../../components/Layout/Sidebar'
 import TopNavbar from '../../components/Layout/TopNavbar'
+import { useAuth } from '../../context/AuthContext'
 import './Profile.css'
 
 const Profile = () => {
   const navigate = useNavigate()
+  const { token, user: authUser, logout, updateUser } = useAuth()
+  const fileInputRef = useRef(null)
+  
   const [user, setUser] = useState({
     name: '',
     email: '',
     displayName: '',
+    bio: '',                          // ✅ Added bio
+    joinDate: '',                     // ✅ Added join date
+    totalNotes: 0,                    // ✅ Added total notes
+    totalFolders: 0,                  // ✅ Added total folders
     timezone: 'Pacific Standard Time (PST)',
-    twoFactorEnabled: false,
-    activeSessions: 3
+    twoFactorEnabled: true,
+    activeSessions: 3,
+    theme: 'light',
+    avatar: null,
+    avatarPreview: null
   })
   const [isEditing, setIsEditing] = useState(false)
   const [formData, setFormData] = useState({})
+  const [loading, setLoading] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [message, setMessage] = useState({ type: '', text: '' })
 
+  // Fetch user profile from backend
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user') || '{}')
-    const profileData = {
-      name: storedUser.name || 'Elena Rodriguez',
-      email: storedUser.email || 'elena.rodriguez@designzen.com',
-      displayName: storedUser.name || 'Elena Rodriguez',
-      timezone: 'Pacific Standard Time (PST)',
-      twoFactorEnabled: true,
-      activeSessions: 3
-    }
-    setUser(profileData)
-    setFormData(profileData)
+    fetchUserProfile()
   }, [])
+
+  const fetchUserProfile = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('http://localhost:5000/api/auth/profile', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok && data.success) {
+        // Fetch notes count
+        const notesResponse = await fetch('http://localhost:5000/api/notes', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        const notesData = await notesResponse.json()
+        
+        const profileData = {
+          name: data.user.name || '',
+          email: data.user.email || '',
+          displayName: data.user.name || '',
+          bio: data.user.bio || 'Passionate about capturing ideas and organizing thoughts. ✨',
+          joinDate: data.user.created_at 
+            ? new Date(data.user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) 
+            : 'May 2024',
+          totalNotes: notesData.notes?.length || 0,
+          totalFolders: 5, // This will be dynamic when folders feature is added
+          timezone: user.timezone,
+          twoFactorEnabled: user.twoFactorEnabled,
+          activeSessions: user.activeSessions,
+          theme: data.user.theme || 'light',
+          avatar: data.user.avatar || null,
+          avatarPreview: data.user.avatar || null
+        }
+        setUser(profileData)
+        setFormData(profileData)
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleChange = (e) => {
     setFormData({
@@ -38,25 +89,221 @@ const Profile = () => {
     })
   }
 
-  const handleUpdate = () => {
-    setUser(formData)
-    localStorage.setItem('user', JSON.stringify({
-      name: formData.displayName,
-      email: formData.email
-    }))
-    setIsEditing(false)
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click()
   }
 
-  const handleDeleteAccount = () => {
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      setMessage({ type: 'error', text: 'Please upload an image file' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+      return
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'Image must be less than 2MB' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+      return
+    }
+
+    setUploadingAvatar(true)
+
+    const reader = new FileReader()
+    reader.onloadend = async () => {
+      const base64Image = reader.result
+      setUser(prev => ({ ...prev, avatarPreview: base64Image }))
+      
+      try {
+        const response = await fetch('http://localhost:5000/api/auth/avatar', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ avatarUrl: base64Image })
+        })
+
+        const data = await response.json()
+
+        if (response.ok && data.success) {
+          setUser(prev => ({ ...prev, avatar: base64Image, avatarPreview: base64Image }))
+          updateUser({ avatar: base64Image })
+          setMessage({ type: 'success', text: 'Avatar updated successfully!' })
+        } else {
+          setMessage({ type: 'error', text: data.message || 'Failed to upload avatar' })
+          setUser(prev => ({ ...prev, avatarPreview: user.avatar }))
+        }
+      } catch (error) {
+        console.error('Error uploading avatar:', error)
+        setMessage({ type: 'error', text: 'Unable to upload avatar. Please try again.' })
+        setUser(prev => ({ ...prev, avatarPreview: user.avatar }))
+      } finally {
+        setUploadingAvatar(false)
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+      }
+    }
+    
+    reader.readAsDataURL(file)
+  }
+
+  const handleUpdate = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('http://localhost:5000/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: formData.displayName,
+          email: formData.email,
+          bio: formData.bio,                    // ✅ Added bio update
+          theme: formData.theme || user.theme
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok && data.success) {
+        const updatedUser = {
+          ...user,
+          name: data.user.name,
+          email: data.user.email,
+          displayName: data.user.name,
+          bio: formData.bio || user.bio,
+          theme: data.user.theme
+        }
+        setUser(updatedUser)
+        setFormData({
+          ...formData,
+          displayName: data.user.name,
+          email: data.user.email
+        })
+        
+        updateUser({ 
+          name: data.user.name, 
+          email: data.user.email,
+          bio: formData.bio,
+          theme: data.user.theme 
+        })
+        
+        setIsEditing(false)
+        setMessage({ type: 'success', text: 'Profile updated successfully!' })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+      } else {
+        setMessage({ type: 'error', text: data.message || 'Failed to update profile' })
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error)
+      setMessage({ type: 'error', text: 'Unable to update profile. Please try again.' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleChangePassword = async () => {
+    const currentPassword = prompt('Enter your current password:')
+    if (!currentPassword) return
+    
+    const newPassword = prompt('Enter your new password (min 6 characters):')
+    if (!newPassword || newPassword.length < 6) {
+      alert('Password must be at least 6 characters')
+      return
+    }
+    
+    const confirmPassword = prompt('Confirm your new password:')
+    if (newPassword !== confirmPassword) {
+      alert('Passwords do not match')
+      return
+    }
+    
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/change-password', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ currentPassword, newPassword })
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok && data.success) {
+        setMessage({ type: 'success', text: 'Password changed successfully!' })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+      } else {
+        setMessage({ type: 'error', text: data.message || 'Failed to change password' })
+      }
+    } catch (error) {
+      console.error('Error changing password:', error)
+      setMessage({ type: 'error', text: 'Unable to change password. Please try again.' })
+    }
+  }
+
+  const handleDeleteAccount = async () => {
     if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-      localStorage.clear()
+      logout()
       navigate('/login')
     }
   }
 
   const handleLogout = () => {
-    localStorage.clear()
-    navigate('/login')
+    if (window.confirm('Are you sure you want to logout?')) {
+      logout()
+      navigate('/login')
+    }
+  }
+
+  const handleThemeChange = async (theme) => {
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ theme })
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok && data.success) {
+        setUser({ ...user, theme })
+        setFormData({ ...formData, theme })
+        
+        updateUser({ theme })
+        
+        if (theme === 'dark') {
+          document.documentElement.setAttribute('data-theme', 'dark')
+        } else {
+          document.documentElement.removeAttribute('data-theme')
+        }
+        setMessage({ type: 'success', text: 'Theme updated!' })
+        setTimeout(() => setMessage({ type: '', text: '' }), 2000)
+      }
+    } catch (error) {
+      console.error('Error updating theme:', error)
+    }
+  }
+
+  if (loading && !user.name) {
+    return (
+      <div className="profile-page">
+        <Sidebar />
+        <div className="profile-main">
+          <TopNavbar />
+          <div className="loading-container">
+            <div className="spinner"></div>
+            <p>Loading profile...</p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -64,12 +311,46 @@ const Profile = () => {
       <Sidebar />
       <div className="profile-main">
         <TopNavbar />
+        
         <div className="profile-content">
-          <div className="profile-header">
-            <div className="profile-avatar-large">
-              <img 
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAD7bMaZsJJD_R-EaWI5KVwQqV_L5y9GEKbTxOJiD-DUr5izKxioj1cWBQvGxzlbCUue94ukVAzKha0NDIYDafGyiT2zXRtcg3Cgb_wZYvguCzs6Zu_-4Xqfm2r5GkbY1jIH4gdbls1NptL8i1kQbGk-qqAXmUQpbv0t8p1OKKLoPwDvugmIzc3tpzZcmrQd8MckqRIfAUSGEcTUB7bggzEU1AP-_Fmrw_GQxBaFMxOgFCaJo2nom7zWvzF8c63XGj4JGMZH4OG3D8"
-                alt="Profile"
+          {/* Message Toast */}
+          {message.text && (
+            <div className={`message-toast ${message.type}`}>
+              <span className="material-symbols-outlined">
+                {message.type === 'success' ? 'check_circle' : 'error_outline'}
+              </span>
+              <p>{message.text}</p>
+            </div>
+          )}
+
+          {/* Hero Section / Identity Card */}
+          <div className="profile-hero">
+            <div className="profile-avatar-wrapper">
+              <div className="profile-avatar-large">
+                {user.avatarPreview || user.avatar ? (
+                  <img 
+                    src={user.avatarPreview || user.avatar} 
+                    alt="Profile" 
+                  />
+                ) : (
+                  <div className="avatar-placeholder">
+                    <span className="material-symbols-outlined">person</span>
+                  </div>
+                )}
+              </div>
+              <button 
+                className="avatar-edit-btn"
+                onClick={handleAvatarClick}
+                disabled={uploadingAvatar}
+              >
+                <span className="material-symbols-outlined">edit</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                style={{ display: 'none' }}
               />
             </div>
             <div className="profile-info">
@@ -81,12 +362,63 @@ const Profile = () => {
                 <span className="badge early">Early Adopter</span>
               </div>
             </div>
+            <div className="profile-actions">
+              <button 
+                className="edit-profile-action-btn"
+                onClick={() => setIsEditing(true)}
+              >
+                Edit Profile
+              </button>
+              <button 
+                className="logout-action-btn"
+                onClick={handleLogout}
+              >
+                <span className="material-symbols-outlined">logout</span>
+                Logout
+              </button>
+            </div>
           </div>
 
-          <div className="profile-sections">
-            {/* Account Settings Section */}
+          {/* Stats Cards */}
+          <div className="profile-stats">
+            <div className="stat-card-mini">
+              <span className="stat-icon-mini">📝</span>
+              <div>
+                <h3>{user.totalNotes}</h3>
+                <p>Total Notes</p>
+              </div>
+            </div>
+            <div className="stat-card-mini">
+              <span className="stat-icon-mini">📁</span>
+              <div>
+                <h3>{user.totalFolders}</h3>
+                <p>Folders</p>
+              </div>
+            </div>
+            <div className="stat-card-mini">
+              <span className="stat-icon-mini">⭐</span>
+              <div>
+                <h3>{Math.floor(user.totalNotes * 0.3)}</h3>
+                <p>Favorites</p>
+              </div>
+            </div>
+            <div className="stat-card-mini">
+              <span className="stat-icon-mini">🔥</span>
+              <div>
+                <h3>{Math.floor(user.totalNotes / 7) || 1}</h3>
+                <p>Week Streak</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Settings Grid */}
+          <div className="profile-settings-grid">
+            {/* Account Settings */}
             <div className="profile-card">
-              <h2>Account Settings</h2>
+              <div className="card-header">
+                <span className="material-symbols-outlined">manage_accounts</span>
+                <h2>Account Settings</h2>
+              </div>
               {isEditing ? (
                 <div className="profile-form">
                   <div className="form-group">
@@ -110,6 +442,17 @@ const Profile = () => {
                     />
                   </div>
                   <div className="form-group">
+                    <label>Bio</label>
+                    <textarea
+                      name="bio"
+                      value={formData.bio || user.bio}
+                      onChange={handleChange}
+                      className="profile-textarea"
+                      rows="3"
+                      placeholder="Tell us about yourself..."
+                    />
+                  </div>
+                  <div className="form-group">
                     <label>Timezone</label>
                     <select
                       name="timezone"
@@ -125,8 +468,12 @@ const Profile = () => {
                     </select>
                   </div>
                   <div className="form-actions">
-                    <button onClick={() => setIsEditing(false)} className="cancel-update-btn">Cancel</button>
-                    <button onClick={handleUpdate} className="update-btn">Update Account Information</button>
+                    <button onClick={() => setIsEditing(false)} className="cancel-update-btn">
+                      Cancel
+                    </button>
+                    <button onClick={handleUpdate} className="update-btn" disabled={loading}>
+                      {loading ? 'Updating...' : 'Update Account'}
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -141,6 +488,14 @@ const Profile = () => {
                       <span className="detail-value">{user.email}</span>
                     </div>
                     <div className="detail-row">
+                      <span className="detail-label">Bio</span>
+                      <span className="detail-value">{user.bio || 'No bio added yet'}</span>
+                    </div>
+                    <div className="detail-row">
+                      <span className="detail-label">Member Since</span>
+                      <span className="detail-value">{user.joinDate}</span>
+                    </div>
+                    <div className="detail-row">
                       <span className="detail-label">Timezone</span>
                       <span className="detail-value">{user.timezone}</span>
                     </div>
@@ -152,20 +507,29 @@ const Profile = () => {
               )}
             </div>
 
-            {/* Security Section */}
+            {/* Security Settings */}
             <div className="profile-card">
-              <h2>Security</h2>
-              <div className="security-item">
-                <div>
-                  <span className="security-label">Password</span>
-                  <span className="security-description">Last changed 3 months ago</span>
+              <div className="card-header">
+                <span className="material-symbols-outlined">shield</span>
+                <h2>Security</h2>
+              </div>
+              <div className="security-item" onClick={handleChangePassword}>
+                <div className="security-item-left">
+                  <span className="material-symbols-outlined">password</span>
+                  <div>
+                    <p className="security-label">Password</p>
+                    <p className="security-description">Last changed 3 months ago</p>
+                  </div>
                 </div>
-                <button className="security-btn">Change</button>
+                <span className="material-symbols-outlined">chevron_right</span>
               </div>
               <div className="security-item">
-                <div>
-                  <span className="security-label">Two-Factor Auth</span>
-                  <span className="security-description">Add an extra layer of security</span>
+                <div className="security-item-left">
+                  <span className="material-symbols-outlined">vibration</span>
+                  <div>
+                    <p className="security-label">Two-Factor Auth</p>
+                    <p className="security-description enabled">Enabled</p>
+                  </div>
                 </div>
                 <label className="toggle-switch">
                   <input 
@@ -177,36 +541,66 @@ const Profile = () => {
                 </label>
               </div>
               <div className="security-item">
-                <div>
-                  <span className="security-label">Active Sessions</span>
-                  <span className="security-description">{user.activeSessions} devices currently logged in</span>
+                <div className="security-item-left">
+                  <span className="material-symbols-outlined">devices</span>
+                  <div>
+                    <p className="security-label">Active Sessions</p>
+                    <p className="security-description">{user.activeSessions} devices currently logged in</p>
+                  </div>
                 </div>
-                <button className="security-btn">Manage</button>
+                <span className="material-symbols-outlined">chevron_right</span>
+              </div>
+
+              {/* Danger Zone */}
+              <div className="danger-zone">
+                <h5>Danger Zone</h5>
+                <p>Permanently delete your account and all your note data.</p>
+                <button onClick={handleDeleteAccount} className="delete-account-btn">
+                  Delete Account
+                </button>
               </div>
             </div>
 
-            {/* Danger Zone */}
-            <div className="profile-card danger-zone">
-              <h2>Danger Zone</h2>
-              <p>Permanently delete your account and all your note data.</p>
-              <button onClick={handleDeleteAccount} className="delete-account-btn">Delete Account</button>
-            </div>
-
-            {/* Appearance Section */}
-            <div className="profile-card">
-              <h2>Appearance & Preferences</h2>
+            {/* Appearance & Preferences */}
+            <div className="profile-card full-width">
+              <div className="card-header">
+                <span className="material-symbols-outlined">palette</span>
+                <h2>Appearance & Preferences</h2>
+              </div>
               <div className="theme-options">
-                <button className="theme-option">
-                  <span className="material-symbols-outlined">light_mode</span>
-                  Light Mode
+                <button 
+                  className={`theme-option ${user.theme === 'light' ? 'active' : ''}`}
+                  onClick={() => handleThemeChange('light')}
+                >
+                  <div className="theme-preview light-preview">
+                    <div className="preview-header"></div>
+                    <div className="preview-line"></div>
+                    <div className="preview-line short"></div>
+                  </div>
+                  <span>Light Mode</span>
+                  {user.theme === 'light' && <div className="active-dot"></div>}
                 </button>
-                <button className="theme-option">
-                  <span className="material-symbols-outlined">dark_mode</span>
-                  Dark Mode
+                <button 
+                  className={`theme-option ${user.theme === 'dark' ? 'active' : ''}`}
+                  onClick={() => handleThemeChange('dark')}
+                >
+                  <div className="theme-preview dark-preview">
+                    <div className="preview-header"></div>
+                    <div className="preview-line"></div>
+                    <div className="preview-line short"></div>
+                  </div>
+                  <span>Dark Mode</span>
+                  {user.theme === 'dark' && <div className="active-dot"></div>}
                 </button>
-                <button className="theme-option active">
-                  <span className="material-symbols-outlined">sync</span>
-                  System Sync
+                <button 
+                  className={`theme-option ${user.theme === 'system' ? 'active' : ''}`}
+                  onClick={() => handleThemeChange('system')}
+                >
+                  <div className="theme-preview system-preview">
+                    <span className="material-symbols-outlined">auto_mode</span>
+                  </div>
+                  <span>System Sync</span>
+                  {user.theme === 'system' && <div className="active-dot"></div>}
                 </button>
               </div>
             </div>
