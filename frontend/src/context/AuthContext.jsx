@@ -1,5 +1,7 @@
-import React, { createContext, useState, useContext, useEffect } from 'react'
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import PropTypes from 'prop-types'
 
 const AuthContext = createContext()
 
@@ -28,47 +30,51 @@ export const AuthProvider = ({ children }) => {
     setLoading(false)
   }, [])
 
-  const login = (userData, authToken) => {
+  // Handle authentication (login and signup share logic)
+  const handleAuth = useCallback((userData, authToken, redirectPath = '/') => {
     setUser(userData)
     setToken(authToken)
     localStorage.setItem('token', authToken)
     localStorage.setItem('user', JSON.stringify(userData))
-    navigate('/dashboard')
-  }
+    navigate(redirectPath)
+  }, [navigate])
 
-  const signup = (userData, authToken) => {
-    setUser(userData)
-    setToken(authToken)
-    localStorage.setItem('token', authToken)
-    localStorage.setItem('user', JSON.stringify(userData))
-    navigate('/dashboard')
-  }
+  const login = useCallback((userData, authToken) => {
+    handleAuth(userData, authToken, '/')
+  }, [handleAuth])
 
-  const logout = () => {
+  const signup = useCallback((userData, authToken) => {
+    handleAuth(userData, authToken, '/')
+  }, [handleAuth])
+
+  const logout = useCallback(() => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     setUser(null)
     setToken(null)
     navigate('/login')
-  }
+  }, [navigate])
 
-  // ✅ Add this function to update user (for avatar/profile updates)
-  const updateUser = (updatedUserData) => {
-    const newUserData = { ...user, ...updatedUserData }
-    setUser(newUserData)
-    localStorage.setItem('user', JSON.stringify(newUserData))
-  }
+  // Update user (for avatar/profile updates)
+  const updateUser = useCallback((updatedUserData) => {
+    setUser(prevUser => {
+      const newUserData = { ...prevUser, ...updatedUserData }
+      localStorage.setItem('user', JSON.stringify(newUserData))
+      return newUserData
+    })
+  }, [])
 
-  const value = {
+  // Memoize the context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     user,
     token,
     loading,
     login,
     signup,
     logout,
-    updateUser,  // ✅ Export this function
+    updateUser,
     isAuthenticated: !!user
-  }
+  }), [user, token, loading, login, signup, logout, updateUser])
 
   return (
     <AuthContext.Provider value={value}>
@@ -77,4 +83,9 @@ export const AuthProvider = ({ children }) => {
   )
 }
 
-export default AuthContext  
+// Add PropTypes for props validation
+AuthProvider.propTypes = {
+  children: PropTypes.node.isRequired,
+}
+
+export default AuthContext

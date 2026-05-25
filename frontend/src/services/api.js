@@ -10,40 +10,112 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       })
-      return response.json()
+      const data = await response.json()
+      // Store token if login successful
+      if (data.token) {
+        localStorage.setItem('token', data.token)
+        localStorage.setItem('user', JSON.stringify(data.user))
+      }
+      return data
     },
-    // ✅ Fix: Change from /auth/signup to /auth/register
+    
     signup: async (name, email, password) => {
       const response = await fetch(`${API_BASE_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password })
       })
-      return response.json()
+      const data = await response.json()
+      // Store token if signup successful
+      if (data.token) {
+        localStorage.setItem('token', data.token)
+        localStorage.setItem('user', JSON.stringify(data.user))
+      }
+      return data
     },
-    // ✅ Fix: Remove logout if backend doesn't have it
+    
     logout: async () => {
       const token = localStorage.getItem('token')
-      // Optional: Call backend logout if you have it
-      // const response = await fetch(`${API_BASE_URL}/auth/logout`, {
-      //   method: 'POST',
-      //   headers: { 'Authorization': `Bearer ${token}` }
-      // })
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+      try {
+        // Try to call backend logout if available
+        await fetch(`${API_BASE_URL}/auth/logout`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      } catch (error) {
+        console.log('Logout error (non-critical):', error)
+      } finally {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+      }
       return { success: true }
+    },
+
+    getProfile: async () => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      return response.json()
+    },
+
+    updateProfile: async (profileData) => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(profileData)
+      })
+      const data = await response.json()
+      // Update stored user if profile update successful
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user))
+      }
+      return data
+    },
+
+    changePassword: async (currentPassword, newPassword) => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ currentPassword, newPassword })
+      })
+      return response.json()
+    },
+
+    uploadAvatar: async (avatarUrl) => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/auth/avatar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ avatarUrl })
+      })
+      return response.json()
     }
   },
 
   // Notes endpoints
   notes: {
-    getAll: async () => {
+    getAll: async (params = {}) => {
       const token = localStorage.getItem('token')
-      const response = await fetch(`${API_BASE_URL}/notes`, {
+      const queryString = new URLSearchParams(params).toString()
+      const url = queryString ? `${API_BASE_URL}/notes?${queryString}` : `${API_BASE_URL}/notes`
+      const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       return response.json()
     },
+    
     getById: async (id) => {
       const token = localStorage.getItem('token')
       const response = await fetch(`${API_BASE_URL}/notes/${id}`, {
@@ -51,6 +123,7 @@ export const api = {
       })
       return response.json()
     },
+    
     create: async (noteData) => {
       const token = localStorage.getItem('token')
       const response = await fetch(`${API_BASE_URL}/notes`, {
@@ -63,6 +136,7 @@ export const api = {
       })
       return response.json()
     },
+    
     update: async (id, noteData) => {
       const token = localStorage.getItem('token')
       const response = await fetch(`${API_BASE_URL}/notes/${id}`, {
@@ -75,6 +149,7 @@ export const api = {
       })
       return response.json()
     },
+    
     delete: async (id) => {
       const token = localStorage.getItem('token')
       const response = await fetch(`${API_BASE_URL}/notes/${id}`, {
@@ -82,28 +157,73 @@ export const api = {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       return response.json()
-    }
-  },
+    },
 
-  // User endpoints
-  user: {
-    // ✅ Fix: Change from /user/profile to /auth/profile
-    getProfile: async () => {
+    toggleFavorite: async (id) => {
       const token = localStorage.getItem('token')
-      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+      const response = await fetch(`${API_BASE_URL}/notes/${id}/favorite`, {
+        method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       })
       return response.json()
     },
-    updateProfile: async (profileData) => {
+
+    toggleArchive: async (id) => {
       const token = localStorage.getItem('token')
-      const response = await fetch(`${API_BASE_URL}/auth/profile`, {
+      const response = await fetch(`${API_BASE_URL}/notes/${id}/archive`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(profileData)
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      return response.json()
+    },
+
+    togglePin: async (id) => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/notes/${id}/pin`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      return response.json()
+    },
+
+    getTrash: async () => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/notes/trash`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      return response.json()
+    },
+
+    restore: async (id) => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/notes/${id}/restore`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      return response.json()
+    },
+
+    permanentDelete: async (id) => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/notes/${id}/permanent`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      return response.json()
+    },
+
+    getStats: async () => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/notes/stats`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      return response.json()
+    },
+
+    getActivityLogs: async () => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/notes/activity-logs`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       })
       return response.json()
     }

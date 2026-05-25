@@ -12,7 +12,13 @@
     "type": "git",
     "url": "git+https://github.com/Qazafi-Hussain-Developer/qazafi-hussain-mern-10pshine.git"
   },
-  "keywords": ["mern", "notes-app", "10pearls", "react", "nodejs"],
+  "keywords": [
+    "mern",
+    "notes-app",
+    "10pearls",
+    "react",
+    "nodejs"
+  ],
   "author": "Qazafi Hussain",
   "license": "ISC",
   "bugs": {
