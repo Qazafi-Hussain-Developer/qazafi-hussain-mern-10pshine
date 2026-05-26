@@ -79,3 +79,31 @@ button {
   white-space: nowrap;
   border-width: 0;
 }
+/* Global scroll limits */
+html, body {
+  overflow: hidden;
+  height: 100%;
+}
+
+#root, .App {
+  height: 100%;
+  overflow: hidden;
+}
+
+.note-editor {
+  display: flex;
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.editor-main {
+  flex: 1;
+  margin-left: 256px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important for flex children to respect overflow */
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
