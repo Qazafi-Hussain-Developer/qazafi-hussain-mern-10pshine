@@ -1,3 +1,4 @@
+// src/App.jsx
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login/Login'
@@ -7,27 +8,38 @@ import NoteEditor from './pages/NoteEditor/NoteEditor'
 import Profile from './pages/Profile/Profile'
 import Settings from './pages/Settings/Settings'
 import Trash from './pages/Trash/Trash'
-import { useAuth } from './context/AuthContext'
+import VerifyOTP from './pages/VerifyOTP/VerifyOTP'           // ✅ NEW
+import ForgotPassword from './pages/ForgotPassword/ForgotPassword'  // ✅ NEW
+import ResetPassword from './pages/ResetPassword/ResetPassword'    // ✅ NEW
+import NotFound from './pages/NotFound/NotFound'              // ✅ NEW - 404 Page
+import PrivateRoute from './components/PrivateRoute/PrivateRoute'  // ✅ NEW
+import { useAuth, AuthProvider } from './context/AuthContext'
 import './App.css'
 
-// Protected Route Component
+// Protected Route Component (kept for backward compatibility)
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth()
+  const { user, loading } = useAuth()
   
   if (loading) {
     return <div className="loading-screen">Loading...</div>
   }
   
-  return isAuthenticated ? children : <Navigate to="/login" replace />
+  return user ? children : <Navigate to="/login" replace />
 }
 
-function App() {
+// Main App Content with Routes
+const AppRoutes = () => {
   return (
     <div className="app">
       <Routes>
         {/* ========== PUBLIC ROUTES ========== */}
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
+        
+        {/* ✅ NEW: Authentication Routes */}
+        <Route path="/verify-otp" element={<VerifyOTP />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         
         {/* ========== PROTECTED ROUTES ========== */}
         
@@ -177,11 +189,21 @@ function App() {
           } 
         />
         
-        {/* ========== DEFAULT & CATCH-ALL ROUTES ========== */}
+        {/* ========== 404 NOT FOUND ROUTE ========== */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<NotFound />} />  {/* ✅ Shows 404 page instead of redirect */}
       </Routes>
     </div>
+  )
+}
+
+// Main App component with AuthProvider wrapper
+// ✅ CORRECT - Self-closing
+function App() {
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
   )
 }
 

@@ -1,0 +1,224 @@
+/* frontend/src/pages/VerifyOTP/VerifyOTP.css */
+.verify-otp-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background-color: #fdf7ff;
+  overflow-x: hidden;
+}
+
+.ambient-glow {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(167, 139, 250, 0.12) 0%, rgba(253, 247, 255, 0) 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.verify-otp-main {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 28rem;
+  padding: 1rem;
+}
+
+.verify-otp-card {
+  background-color: #ffffff;
+  border-radius: 0.75rem;
+  padding: 2rem 1.5rem;
+  box-shadow: 0 4px 20px -2px rgba(167, 139, 250, 0.08);
+  border: 1px solid rgba(202, 196, 212, 0.3);
+}
+
+.verify-otp-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.logo-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  background-color: #a78bfa;
+  border-radius: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.logo-icon .material-symbols-outlined {
+  color: #3c1989;
+  font-size: 1.5rem;
+  font-variation-settings: 'FILL' 1;
+}
+
+.verify-otp-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 2rem;
+  letter-spacing: -0.01em;
+  color: #674bb5;
+  margin-bottom: 0.5rem;
+}
+
+.verify-otp-subtitle {
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+  color: #494552;
+}
+
+.verify-otp-subtitle strong {
+  color: #674bb5;
+}
+
+.verify-otp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.otp-timer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background-color: #f8f1fb;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  color: #494552;
+}
+
+.otp-timer .material-symbols-outlined {
+  font-size: 1.25rem;
+  color: #a78bfa;
+}
+
+.otp-timer strong {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.otp-input-group {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.otp-input {
+  width: 3rem;
+  height: 3rem;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 600;
+  border: 2px solid #cac4d4;
+  border-radius: 0.5rem;
+  background-color: #ffffff;
+  transition: all 0.2s;
+}
+
+.otp-input:focus {
+  outline: none;
+  border-color: #a78bfa;
+  box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.2);
+}
+
+.verify-button {
+  width: 100%;
+  background-color: #a78bfa;
+  color: #3c1989;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  border: none;
+  cursor: pointer;
+}
+
+.verify-button:hover:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow: 0 4px 12px rgba(167, 139, 250, 0.3);
+}
+
+.verify-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-message {
+  background-color: #ffdad6;
+  color: #93000a;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.success-message {
+  background-color: #d1fae5;
+  color: #065f46;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.resend-section {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.resend-text {
+  font-size: 0.875rem;
+  color: #494552;
+}
+
+.resend-button {
+  background: none;
+  border: none;
+  color: #a78bfa;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 0.5rem;
+  text-decoration: underline;
+}
+
+.resend-button:hover:not(:disabled) {
+  color: #674bb5;
+}
+
+.resend-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.back-to-login {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+
+.back-to-login a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #7a7583;
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+
+.back-to-login a:hover {
+  color: #674bb5;
+}
+
+.back-to-login .material-symbols-outlined {
+  font-size: 1rem;
+}
