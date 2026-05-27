@@ -1,3 +1,4 @@
+/* src/pages/Login/Login.css */
 .login-container {
   min-height: 100vh;
   display: flex;
@@ -96,6 +97,7 @@
   align-items: center;
 }
 
+/* Forgot link - single definition */
 .forgot-link {
   font-size: 0.75rem;
   font-weight: 600;
@@ -176,9 +178,14 @@
   cursor: pointer;
 }
 
-.signin-button:hover {
+.signin-button:hover:not(:disabled) {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
   transform: scale(0.98);
+}
+
+.signin-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .divider {
@@ -229,8 +236,13 @@
   transition: background-color 0.2s;
 }
 
-.social-btn:hover {
+.social-btn:hover:not(:disabled) {
   background-color: #f8f1fb;
+}
+
+.social-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .social-btn img {
@@ -279,6 +291,34 @@
   color: #494552;
 }
 
+/* Remember Me checkbox styles */
+.remember-me-group {
+  flex-direction: row;
+  align-items: center;
+  margin-top: -0.5rem;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #494552;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: #a78bfa;
+}
+
+/* .checkbox-text {
+  user-select: none;
+} */
+
+/* Side graphic - desktop only */
 .side-graphic {
   display: none;
 }

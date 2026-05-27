@@ -1,8 +1,7 @@
-import axios from 'axios';
-import API, { loginUser, registerUser, getNotes, createNote } from './api';
+import { jest } from '@jest/globals';
+import { api } from './api';
 
-jest.mock('axios');
-const mockedAxios = axios;
+global.fetch = jest.fn();
 
 describe('API Service Tests', () => {
   beforeEach(() => {
@@ -11,31 +10,50 @@ describe('API Service Tests', () => {
   });
 
   test('loginUser should call correct endpoint', async () => {
-    const mockResponse = { data: { token: 'test-token', user: { id: 1 } } };
-    mockedAxios.post.mockResolvedValue(mockResponse);
+    fetch.mockResolvedValue({ json: () => ({ token: 'test-token', user: { id: 1 } }) });
 
-    const result = await loginUser({ email: 'test@example.com', password: '123456' });
-    
-    expect(mockedAxios.post).toHaveBeenCalledWith('/auth/login', { email: 'test@example.com', password: '123456' });
-    expect(result).toEqual(mockResponse);
+    await api.auth.login('test@example.com', '123456');
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/auth/login'),
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 
   test('registerUser should call correct endpoint', async () => {
-    const mockResponse = { data: { token: 'test-token', user: { id: 1 } } };
-    mockedAxios.post.mockResolvedValue(mockResponse);
+    fetch.mockResolvedValue({ json: () => ({ token: 'test-token', user: { id: 1 } }) });
 
-    const result = await registerUser({ name: 'Test', email: 'test@example.com', password: '123456' });
-    
-    expect(mockedAxios.post).toHaveBeenCalledWith('/auth/register', { name: 'Test', email: 'test@example.com', password: '123456' });
-    expect(result).toEqual(mockResponse);
+    await api.auth.signup('Test', 'test@example.com', '123456');
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/auth/register'),
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 
-  test('getNotes should add auth token to headers', async () => {
+  test('getNotes should include auth token in headers', async () => {
     localStorage.setItem('token', 'test-token-123');
-    mockedAxios.get.mockResolvedValue({ data: { notes: [] } });
+    fetch.mockResolvedValue({ json: () => ({ notes: [] }) });
 
-    await getNotes();
-    
-    expect(mockedAxios.get).toHaveBeenCalledWith('/notes');
+    await api.notes.getAll();
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/notes'),
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'Authorization': 'Bearer test-token-123' })
+      })
+    );
+  });
+
+  test('createNote should post note data', async () => {
+    localStorage.setItem('token', 'test-token-123');
+    fetch.mockResolvedValue({ json: () => ({ id: 1, title: 'Test' }) });
+
+    await api.notes.create({ title: 'Test', content: 'Hello' });
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/notes'),
+      expect.objectContaining({ method: 'POST' })
+    );
   });
 });
