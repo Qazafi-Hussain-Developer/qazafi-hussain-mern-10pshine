@@ -1,14 +1,24 @@
-// frontend/src/components/PrivateRoute/PrivateRoute.test.jsx
-import { render, screen } from '@testing-library/react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import PrivateRoute from './PrivateRoute';
+import { jest } from '@jest/globals';
 
-// Mock the useAuth hook
-const mockUseAuth = jest.fn();
+const mockNavigate = jest.fn();
 
-jest.mock('../../../context/AuthContext', () => ({
-  useAuth: () => mockUseAuth(),
+jest.unstable_mockModule('react-router-dom', () => ({
+  useNavigate: () => mockNavigate,
+  Navigate: ({ to }) => <div data-testid="navigate" data-to={to}>Redirecting...</div>,
+  Outlet: () => <div data-testid="outlet">Outlet Content</div>,
 }));
+
+jest.unstable_mockModule('../../context/AuthContext', () => ({
+  useAuth: jest.fn(() => ({
+    isAuthenticated: true,
+    loading: false,
+    user: { id: 1, name: 'Test User', role: 'user' },
+  })),
+}));
+
+const { render, screen } = await import('@testing-library/react');
+const { default: PrivateRoute } = await import('./PrivateRoute.jsx');
+const { useAuth } = await import('../../context/AuthContext.jsx');
 
 describe('PrivateRoute Component', () => {
   beforeEach(() => {
@@ -16,83 +26,37 @@ describe('PrivateRoute Component', () => {
   });
 
   test('renders children when authenticated', () => {
-    mockUseAuth.mockReturnValue({
-      isAuthenticated: true,
-      loading: false,
-    });
-
+    useAuth.mockReturnValue({ isAuthenticated: true, loading: false, user: { id: 1 } });
     render(
-      <BrowserRouter>
-        <PrivateRoute>
-          <div data-testid="protected-content">Protected Content</div>
-        </PrivateRoute>
-      </BrowserRouter>
+      <PrivateRoute>
+        <div data-testid="protected-content">Protected Content</div>
+      </PrivateRoute>
     );
-
     expect(screen.getByTestId('protected-content')).toBeInTheDocument();
-    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  });
+
+  test('renders Outlet when authenticated and no children', () => {
+    useAuth.mockReturnValue({ isAuthenticated: true, loading: false, user: { id: 1 } });
+    render(<PrivateRoute />);
+    expect(screen.getByTestId('outlet')).toBeInTheDocument();
   });
 
   test('redirects to login when not authenticated', () => {
-    mockUseAuth.mockReturnValue({
-      isAuthenticated: false,
-      loading: false,
-    });
-
-    render(
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<div data-testid="login-page">Login Page</div>} />
-          <Route path="/protected" element={
-            <PrivateRoute>
-              <div>Protected Content</div>
-            </PrivateRoute>
-          } />
-        </Routes>
-        <PrivateRoute>
-          <div>Protected Content</div>
-        </PrivateRoute>
-      </BrowserRouter>
-    );
-
-    // Should redirect to login
-    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+    useAuth.mockReturnValue({ isAuthenticated: false, loading: false, user: null });
+    render(<PrivateRoute />);
+    expect(screen.getByTestId('navigate')).toBeInTheDocument();
+    expect(screen.getByTestId('navigate')).toHaveAttribute('data-to', '/login');
   });
 
-  test('shows loading spinner when loading', () => {
-    mockUseAuth.mockReturnValue({
-      isAuthenticated: false,
-      loading: true,
-    });
+  test('redirects to custom path when specified', () => {
+    useAuth.mockReturnValue({ isAuthenticated: false, loading: false, user: null });
+    render(<PrivateRoute redirectTo="/signup" />);
+    expect(screen.getByTestId('navigate')).toHaveAttribute('data-to', '/signup');
+  });
 
-    render(
-      <BrowserRouter>
-        <PrivateRoute>
-          <div>Protected Content</div>
-        </PrivateRoute>
-      </BrowserRouter>
-    );
-
+  test('shows loading state', () => {
+    useAuth.mockReturnValue({ isAuthenticated: false, loading: true, user: null });
+    render(<PrivateRoute />);
     expect(screen.getByText(/Loading/i)).toBeInTheDocument();
-  });
-
-  test('accepts custom redirect path', () => {
-    mockUseAuth.mockReturnValue({
-      isAuthenticated: false,
-      loading: false,
-    });
-
-    render(
-      <BrowserRouter>
-        <Routes>
-          <Route path="/custom-login" element={<div data-testid="custom-login">Custom Login</div>} />
-        </Routes>
-        <PrivateRoute redirectTo="/custom-login">
-          <div>Protected Content</div>
-        </PrivateRoute>
-      </BrowserRouter>
-    );
-
-    expect(screen.getByTestId('custom-login')).toBeInTheDocument();
   });
 });

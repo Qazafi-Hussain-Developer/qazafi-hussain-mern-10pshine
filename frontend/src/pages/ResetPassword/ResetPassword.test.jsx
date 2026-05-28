@@ -1,12 +1,19 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
-import ResetPassword from './ResetPassword';
+import { jest } from '@jest/globals';
 
-jest.mock('../../context/AuthContext', () => ({
+jest.unstable_mockModule('react-router-dom', () => ({
+  useNavigate: () => jest.fn(),
+  useLocation: () => ({ pathname: '/reset-password' }),
+  Link: ({ children, to }) => <a href={to}>{children}</a>,
+}));
+
+jest.unstable_mockModule('../../context/AuthContext', () => ({
   useAuth: () => ({
     resetPassword: jest.fn().mockResolvedValue({ success: true }),
   }),
 }));
+
+const { render, screen, fireEvent, waitFor } = await import('@testing-library/react');
+const { default: ResetPassword } = await import('./ResetPassword.jsx');
 
 describe('ResetPassword Page', () => {
   beforeEach(() => {
@@ -18,30 +25,30 @@ describe('ResetPassword Page', () => {
   });
 
   test('renders reset password page', () => {
-    render(
-      <BrowserRouter>
-        <ResetPassword />
-      </BrowserRouter>
-    );
+    render(<ResetPassword />);
     expect(screen.getByText(/Reset Password/i)).toBeInTheDocument();
   });
 
-  test('has OTP inputs', () => {
-    render(
-      <BrowserRouter>
-        <ResetPassword />
-      </BrowserRouter>
-    );
-    const otpInputs = document.querySelectorAll('.otp-input');
-    expect(otpInputs.length).toBe(6);
+  test('shows email address', () => {
+    render(<ResetPassword />);
+    expect(screen.getByText(/test@example.com/i)).toBeInTheDocument();
   });
 
-  test('has password input', () => {
-    render(
-      <BrowserRouter>
-        <ResetPassword />
-      </BrowserRouter>
-    );
+  test('has new password input', () => {
+    render(<ResetPassword />);
     expect(screen.getByLabelText(/New Password/i)).toBeInTheDocument();
+  });
+
+  test('has reset button', () => {
+    render(<ResetPassword />);
+    expect(screen.getByRole('button', { name: /Reset Password/i })).toBeInTheDocument();
+  });
+
+  test('shows error when OTP is incomplete', async () => {
+    render(<ResetPassword />);
+    fireEvent.click(screen.getByRole('button', { name: /Reset Password/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/Please enter the 6-digit verification code/i)).toBeInTheDocument();
+    });
   });
 });
