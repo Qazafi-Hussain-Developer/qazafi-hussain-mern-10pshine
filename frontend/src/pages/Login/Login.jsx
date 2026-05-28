@@ -1,3 +1,4 @@
+// src/pages/Login/Login.jsx
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -5,11 +6,12 @@ import './Login.css'
 
 const Login = () => {
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const { loginWithCredentials, login } = useAuth() // ✅ Added loginWithCredentials, kept existing login
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   })
+  const [rememberMe, setRememberMe] = useState(false) // ✅ NEW: Remember Me state
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -18,6 +20,8 @@ const Login = () => {
       ...formData,
       [e.target.name]: e.target.value
     })
+    // Clear error when user starts typing
+    if (error) setError('')
   }
 
   const handleSubmit = async (e) => {
@@ -35,7 +39,7 @@ const Login = () => {
     try {
       console.log('Sending login request for:', formData.email)
       
-      // Real API call to your backend
+      // ✅ Updated to use the new auth method with remember me
       const response = await fetch('http://localhost:5000/api/auth/login', {
         method: 'POST',
         headers: {
@@ -52,9 +56,8 @@ const Login = () => {
       console.log('Response data:', data)
 
       if (response.ok && data.success) {
-        // Store user data and token via AuthContext
-        login(data.user, data.token)
-        // Redirect to dashboard
+        // ✅ Pass rememberMe to the login function
+        login(data.user, data.token, rememberMe)
         navigate('/dashboard')
       } else {
         setError(data.message || 'Invalid email or password')
@@ -67,9 +70,10 @@ const Login = () => {
     }
   }
 
+  // ✅ NEW: Handle social login - will redirect to backend OAuth
   const handleSocialLogin = (provider) => {
-    console.log(`Login with ${provider}`)
-    // Social login can be implemented later
+    // Redirect to backend OAuth route
+    window.location.href = `http://localhost:5000/api/auth/${provider.toLowerCase()}`
   }
 
   return (
@@ -86,8 +90,8 @@ const Login = () => {
             <p className="login-subtitle">Return to your digital zen workspace.</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="login-form">
-            {error && <div className="error-message">{error}</div>}
+          <form onSubmit={handleSubmit} className="login-form" noValidate>
+            {error && <div className="error-message" data-testid="error-message">{error}</div>}
             
             <div className="form-group">
               <label htmlFor="email">Email Address</label>
@@ -101,7 +105,6 @@ const Login = () => {
                   value={formData.email}
                   onChange={handleChange}
                   autoComplete="username"
-                  required
                   disabled={loading}
                 />
               </div>
@@ -110,7 +113,8 @@ const Login = () => {
             <div className="form-group">
               <div className="label-row">
                 <label htmlFor="password">Password</label>
-                <a href="#" className="forgot-link">Forgot?</a>
+                {/* ✅ Updated Forgot Password link to use React Router */}
+                <Link to="/forgot-password" className="forgot-link">Forgot?</Link>
               </div>
               <div className="input-wrapper">
                 <span className="material-symbols-outlined input-icon">lock</span>
@@ -122,10 +126,22 @@ const Login = () => {
                   autoComplete="current-password"
                   value={formData.password}
                   onChange={handleChange}
-                  required
                   disabled={loading}
                 />
               </div>
+            </div>
+
+            {/* ✅ NEW: Remember Me checkbox */}
+            <div className="form-group remember-me-group">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  disabled={loading}
+                />
+                <span className="checkbox-text">Remember me</span>
+              </label>
             </div>
 
             <button type="submit" className="signin-button" disabled={loading}>
@@ -139,11 +155,14 @@ const Login = () => {
           </div>
 
           <div className="social-buttons">
-            <button onClick={() => handleSocialLogin('Google')} className="social-btn">
-              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvDPTjxzOEqlEnHNr3Zz3Trt_nRgwU52LlQ875lHfSCsnjwaxKUdV6TI8cYiwppwZgai2ZGreYiZ7w8ILh73Qe8w1odoF1kyDSyuOmPom7MBAZ_TFO131PNRyD5mbjubdCrICCKYxAX4czytePd5kJwN15FbSV0p3DZIq-McmcOKBXNZJ_kzEbmcegxBh4umessvRKRPockxtT8wBqvft7oqC1IYOad177zsfVYj7qpbDbbqbKabVs2hqdOxgLHbGxk0624PrOm98" alt="Google" />
+            <button onClick={() => handleSocialLogin('Google')} className="social-btn" type="button" disabled={loading}>
+              <img 
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvDPTjxzOEqlEnHNr3Zz3Trt_nRgwU52LlQ875lHfSCsnjwaxKUdV6TI8cYiwppwZgai2ZGreYiZ7w8ILh73Qe8w1odoF1kyDSyuOmPom7MBAZ_TFO131PNRyD5mbjubdCrICCKYxAX4czytePd5kJwN15FbSV0p3DZIq-McmcOKBXNZJ_kzEbmcegxBh4umessvRKRPockxtT8wBqvft7oqC1IYOad177zsfVYj7qpbDbbqbKabVs2hqdOxgLHbGxk0624PrOm98" 
+                alt="Google" 
+              />
               Google
             </button>
-            <button onClick={() => handleSocialLogin('Apple')} className="social-btn">
+            <button onClick={() => handleSocialLogin('Apple')} className="social-btn" type="button" disabled={loading}>
               <span className="material-symbols-outlined">ios</span>
               Apple
             </button>

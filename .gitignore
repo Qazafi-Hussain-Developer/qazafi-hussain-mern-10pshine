@@ -1,9 +1,13 @@
 node_modules/
 .env
+.env.local
+.env.*.local
 .DS_Store
 build/
 dist/
 *.log
 coverage/
 .vscode/
-*.bat
+.idea/              # WebStorm/IntelliJ IDEA
+*.swp              # Vim swap files
+*.swo              # Vim swap files
