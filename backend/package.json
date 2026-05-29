@@ -12,6 +12,7 @@
     "test:watch": "NODE_ENV=test mocha src/tests/**/*.test.js --watch"
   },
   "dependencies": {
+    "@sendgrid/mail": "^8.1.6",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -23,7 +24,8 @@
     "nodemailer": "^8.0.9",
     "pg": "^8.13.1",
     "pino": "^9.6.0",
-    "pino-pretty": "^11.3.0"
+    "pino-pretty": "^11.3.0",
+    "resend": "^6.12.4"
   },
   "devDependencies": {
     "chai": "^5.1.2",

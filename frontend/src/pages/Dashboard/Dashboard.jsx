@@ -38,7 +38,7 @@ const categoryColors = {
 
 const Dashboard = () => {
   const navigate = useNavigate()
-  const { user, token } = useAuth()
+  const { user, token, loading: authLoading, logout } = useAuth()
   const location = useLocation()
   const [notes, setNotes] = useState([])
   const [filteredNotes, setFilteredNotes] = useState([])
@@ -65,6 +65,18 @@ const Dashboard = () => {
   const debounceTimeoutRef = useRef(null)
   const abortControllerRef = useRef(null)
   const isMountedRef = useRef(true)
+
+  // Debug log for user
+  console.log('Dashboard - User:', user)
+  console.log('Dashboard - Token exists:', !!token)
+
+  // Redirect if no user (not authenticated)
+  useEffect(() => {
+    if (!authLoading && !user && !token) {
+      console.log('No user found, redirecting to login')
+      navigate('/login')
+    }
+  }, [user, token, authLoading, navigate])
 
   const currentHour = new Date().getHours()
   const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening'
@@ -188,6 +200,11 @@ const Dashboard = () => {
 
   // Fetch notes from backend
   const fetchNotes = useCallback(async () => {
+    if (!token) {
+      console.log('No token available, skipping fetch')
+      return
+    }
+
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
     }
@@ -199,6 +216,8 @@ const Dashboard = () => {
       setError('')
       
       const url = buildApiUrl()
+      console.log('Fetching notes from:', url)
+      
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -206,6 +225,12 @@ const Dashboard = () => {
         },
         signal: abortControllerRef.current.signal
       })
+      
+      if (response.status === 401) {
+        console.log('Token expired, logging out')
+        logout()
+        return
+      }
       
       if (response.status === 429) {
         if (isMountedRef.current) {
@@ -263,7 +288,7 @@ const Dashboard = () => {
         setLoading(false)
       }
     }
-  }, [token, activeFilter, sortBy, location.pathname, filterCategory, filterDate, stats.streak])
+  }, [token, activeFilter, sortBy, location.pathname, filterCategory, filterDate, stats.streak, logout])
 
   // Debounced fetch
   useEffect(() => {
@@ -480,6 +505,21 @@ const Dashboard = () => {
       createdAt: note.created_at,
       updatedAt: note.updated_at
     }))
+  }
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="loading-screen">
+        <div className="spinner"></div>
+        <p>Loading...</p>
+      </div>
+    )
+  }
+
+  // If no user, don't render dashboard
+  if (!user && !token) {
+    return null
   }
 
   return (

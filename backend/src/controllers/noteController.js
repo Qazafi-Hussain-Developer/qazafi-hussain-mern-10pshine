@@ -10,53 +10,61 @@ const stripHtml = (html) => {
 // ==================== GET ALL NOTES ====================
 export const getNotes = async (req, res) => {
   try {
-    const { category, is_favorite, is_archived, is_pinned, search, sort_by } = req.query;
+    const { category, is_favorite, is_archived, is_pinned, search, sort_by, folder_id } = req.query;
     
     let query = `
-      SELECT id, title, content, plain_content, category, is_favorite, is_archived, is_pinned, color, created_at, updated_at, tags
-      FROM notes 
-      WHERE user_id = $1 AND is_deleted = false
+      SELECT n.id, n.title, n.content, n.plain_content, n.category, n.is_favorite, n.is_archived, n.is_pinned, n.color, n.created_at, n.updated_at, n.tags, n.folder_id,
+             f.name as folder_name, f.icon as folder_icon, f.color as folder_color
+      FROM notes n
+      LEFT JOIN folders f ON n.folder_id = f.id
+      WHERE n.user_id = $1 AND n.is_deleted = false
     `;
     const values = [req.user.id];
     let paramCount = 2;
 
+    if (folder_id === 'null') {
+      query += ` AND n.folder_id IS NULL`;
+    } else if (folder_id) {
+      query += ` AND n.folder_id = $${paramCount++}`;
+      values.push(folder_id);
+    }
     if (category && category !== 'All') {
-      query += ` AND category = $${paramCount++}`;
+      query += ` AND n.category = $${paramCount++}`;
       values.push(category);
     }
     if (is_favorite === 'true') {
-      query += ` AND is_favorite = true`;
+      query += ` AND n.is_favorite = true`;
     }
     if (is_archived === 'true') {
-      query += ` AND is_archived = true`;
+      query += ` AND n.is_archived = true`;
     }
     if (is_pinned === 'true') {
-      query += ` AND is_pinned = true`;
+      query += ` AND n.is_pinned = true`;
     }
     if (search) {
-      query += ` AND (title ILIKE $${paramCount} OR plain_content ILIKE $${paramCount})`;
+      query += ` AND (n.title ILIKE $${paramCount} OR n.plain_content ILIKE $${paramCount})`;
       values.push(`%${search}%`);
       paramCount++;
     }
 
     switch(sort_by) {
       case 'pinned':
-        query += ` ORDER BY is_pinned DESC, updated_at DESC`;
+        query += ` ORDER BY n.is_pinned DESC, n.updated_at DESC`;
         break;
       case 'title_asc':
-        query += ` ORDER BY title ASC`;
+        query += ` ORDER BY n.title ASC`;
         break;
       case 'title_desc':
-        query += ` ORDER BY title DESC`;
+        query += ` ORDER BY n.title DESC`;
         break;
       case 'created_asc':
-        query += ` ORDER BY created_at ASC`;
+        query += ` ORDER BY n.created_at ASC`;
         break;
       case 'created_desc':
-        query += ` ORDER BY created_at DESC`;
+        query += ` ORDER BY n.created_at DESC`;
         break;
       default:
-        query += ` ORDER BY updated_at DESC`;
+        query += ` ORDER BY n.updated_at DESC`;
     }
 
     const result = await pool.query(query, values);
@@ -72,9 +80,11 @@ export const getNoteById = async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      `SELECT id, title, content, plain_content, category, is_favorite, is_archived, is_pinned, color, created_at, updated_at, tags
-       FROM notes 
-       WHERE id = $1 AND user_id = $2 AND is_deleted = false`,
+      `SELECT n.id, n.title, n.content, n.plain_content, n.category, n.is_favorite, n.is_archived, n.is_pinned, n.color, n.created_at, n.updated_at, n.tags, n.folder_id,
+              f.name as folder_name
+       FROM notes n
+       LEFT JOIN folders f ON n.folder_id = f.id
+       WHERE n.id = $1 AND n.user_id = $2 AND n.is_deleted = false`,
       [id, req.user.id]
     );
     if (result.rows.length === 0) {
@@ -90,15 +100,26 @@ export const getNoteById = async (req, res) => {
 // ==================== CREATE NOTE ====================
 export const createNote = async (req, res) => {
   try {
-    const { title, content, category, color, tags } = req.body;
+    const { title, content, category, color, tags, folder_id } = req.body;
     const plainContent = stripHtml(content);
     const wordCount = plainContent.split(/\s+/).filter(w => w.length > 0).length;
     const result = await pool.query(
-      `INSERT INTO notes (user_id, title, content, plain_content, category, color, tags, word_count)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, title, content, plain_content, category, is_favorite, is_archived, is_pinned, color, created_at, updated_at, tags`,
-      [req.user.id, title || 'Untitled', content || '', plainContent, category || 'Personal', color || null, tags || [], wordCount]
+      `INSERT INTO notes (user_id, title, content, plain_content, category, color, tags, word_count, folder_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, title, content, plain_content, category, is_favorite, is_archived, is_pinned, color, created_at, updated_at, tags, folder_id`,
+      [req.user.id, title || 'Untitled', content || '', plainContent, category || 'Personal', color || null, tags || [], wordCount, folder_id || null]
     );
+    
+    // Update folder note count
+    if (folder_id) {
+      await pool.query(
+        `UPDATE folders SET note_count = (
+          SELECT COUNT(*) FROM notes WHERE folder_id = $1 AND is_deleted = false
+        ) WHERE id = $1`,
+        [folder_id]
+      );
+    }
+    
     logUserActivity(req.user.name, req.user.email, 'CREATE_NOTE', `Note created: ${title || 'Untitled'}`);
     await pool.query(
       `INSERT INTO activity_logs (user_id, action, details, ip_address) 
@@ -117,12 +138,13 @@ export const createNote = async (req, res) => {
 export const updateNote = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, content, category, is_favorite, is_archived, is_pinned, color, tags } = req.body;
+    const { title, content, category, is_favorite, is_archived, is_pinned, color, tags, folder_id } = req.body;
     const plainContent = content !== undefined ? stripHtml(content) : undefined;
     const wordCount = plainContent ? plainContent.split(/\s+/).filter(w => w.length > 0).length : undefined;
     const updates = [];
     const values = [];
     let paramCount = 1;
+    
     if (title !== undefined) {
       updates.push(`title = $${paramCount++}`);
       values.push(title);
@@ -163,18 +185,32 @@ export const updateNote = async (req, res) => {
       updates.push(`tags = $${paramCount++}`);
       values.push(tags);
     }
+    if (folder_id !== undefined) {
+      updates.push(`folder_id = $${paramCount++}`);
+      values.push(folder_id === 'null' ? null : folder_id);
+    }
+    
     updates.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(id, req.user.id);
     const query = `
       UPDATE notes 
       SET ${updates.join(', ')} 
       WHERE id = $${paramCount} AND user_id = $${paramCount + 1}
-      RETURNING id, title, content, plain_content, category, is_favorite, is_archived, is_pinned, color, created_at, updated_at, tags
+      RETURNING id, title, content, plain_content, category, is_favorite, is_archived, is_pinned, color, created_at, updated_at, tags, folder_id
     `;
     const result = await pool.query(query, values);
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Note not found' });
     }
+    
+    // Update folder note counts
+    await pool.query(
+      `UPDATE folders SET note_count = (
+        SELECT COUNT(*) FROM notes WHERE folder_id = folders.id AND is_deleted = false
+      ) WHERE user_id = $1`,
+      [req.user.id]
+    );
+    
     logUserActivity(req.user.name, req.user.email, 'UPDATE_NOTE', `Note updated: ${title || 'Untitled'}`);
     await pool.query(
       `INSERT INTO activity_logs (user_id, action, details, ip_address) 
@@ -194,17 +230,30 @@ export const deleteNote = async (req, res) => {
   try {
     const { id } = req.params;
     const noteResult = await pool.query(
-      'SELECT title FROM notes WHERE id = $1 AND user_id = $2',
+      'SELECT title, folder_id FROM notes WHERE id = $1 AND user_id = $2',
       [id, req.user.id]
     );
     if (noteResult.rows.length === 0) {
       return res.status(404).json({ message: 'Note not found' });
     }
     const noteTitle = noteResult.rows[0].title;
+    const folderId = noteResult.rows[0].folder_id;
+    
     await pool.query(
       'UPDATE notes SET is_deleted = true, deleted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1 AND user_id = $2',
       [id, req.user.id]
     );
+    
+    // Update folder note count
+    if (folderId) {
+      await pool.query(
+        `UPDATE folders SET note_count = (
+          SELECT COUNT(*) FROM notes WHERE folder_id = $1 AND is_deleted = false
+        ) WHERE id = $1`,
+        [folderId]
+      );
+    }
+    
     logUserActivity(req.user.name, req.user.email, 'DELETE_NOTE', `Note moved to trash: ${noteTitle}`);
     await pool.query(
       `INSERT INTO activity_logs (user_id, action, details, ip_address) 
@@ -223,7 +272,7 @@ export const deleteNote = async (req, res) => {
 export const getTrashedNotes = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, title, content, category, is_favorite, is_archived, is_pinned, color, created_at, updated_at, deleted_at
+      `SELECT id, title, content, category, is_favorite, is_archived, is_pinned, color, created_at, updated_at, deleted_at, folder_id
        FROM notes 
        WHERE user_id = $1 AND is_deleted = true 
        ORDER BY deleted_at DESC`,
@@ -244,12 +293,23 @@ export const restoreNote = async (req, res) => {
       `UPDATE notes 
        SET is_deleted = false, deleted_at = NULL, updated_at = CURRENT_TIMESTAMP
        WHERE id = $1 AND user_id = $2
-       RETURNING id, title`,
+       RETURNING id, title, folder_id`,
       [id, req.user.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Note not found' });
     }
+    
+    // Update folder note count
+    if (result.rows[0].folder_id) {
+      await pool.query(
+        `UPDATE folders SET note_count = (
+          SELECT COUNT(*) FROM notes WHERE folder_id = $1 AND is_deleted = false
+        ) WHERE id = $1`,
+        [result.rows[0].folder_id]
+      );
+    }
+    
     logUserActivity(req.user.name, req.user.email, 'RESTORE_NOTE', `Note restored: ${result.rows[0].title}`);
     await pool.query(
       `INSERT INTO activity_logs (user_id, action, details, ip_address) 
@@ -268,12 +328,23 @@ export const permanentDeleteNote = async (req, res) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      'DELETE FROM notes WHERE id = $1 AND user_id = $2 RETURNING title',
+      'DELETE FROM notes WHERE id = $1 AND user_id = $2 RETURNING title, folder_id',
       [id, req.user.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Note not found' });
     }
+    
+    // Update folder note count
+    if (result.rows[0].folder_id) {
+      await pool.query(
+        `UPDATE folders SET note_count = (
+          SELECT COUNT(*) FROM notes WHERE folder_id = $1 AND is_deleted = false
+        ) WHERE id = $1`,
+        [result.rows[0].folder_id]
+      );
+    }
+    
     logUserActivity(req.user.name, req.user.email, 'PERMANENT_DELETE_NOTE', `Note permanently deleted: ${result.rows[0].title}`);
     await pool.query(
       `INSERT INTO activity_logs (user_id, action, details, ip_address) 
@@ -366,6 +437,8 @@ export const getUserStats = async (req, res) => {
     const favoriteResult = await pool.query('SELECT COUNT(*) FROM notes WHERE user_id = $1 AND is_favorite = true AND is_deleted = false', [userId]);
     const pinnedResult = await pool.query('SELECT COUNT(*) FROM notes WHERE user_id = $1 AND is_pinned = true AND is_deleted = false', [userId]);
     const streakResult = await pool.query(`SELECT COUNT(DISTINCT DATE(created_at)) as streak FROM notes WHERE user_id = $1 AND is_deleted = false AND created_at > NOW() - INTERVAL '30 days'`, [userId]);
+    const foldersResult = await pool.query('SELECT COUNT(*) FROM folders WHERE user_id = $1', [userId]);
+    
     res.json({
       success: true,
       stats: {
@@ -373,7 +446,8 @@ export const getUserStats = async (req, res) => {
         today: parseInt(todayResult.rows[0].count),
         favorites: parseInt(favoriteResult.rows[0].count),
         pinned: parseInt(pinnedResult.rows[0].count),
-        streak: Math.min(parseInt(streakResult.rows[0].streak) || 1, 30)
+        streak: Math.min(parseInt(streakResult.rows[0].streak) || 1, 30),
+        folders: parseInt(foldersResult.rows[0].count)
       }
     });
   } catch (error) {
@@ -400,27 +474,315 @@ export const getActivityLogs = async (req, res) => {
   }
 };
 
-// ==================== COLLABORATION FUNCTIONS ====================
+// ==================== GET DASHBOARD STATS (Enhanced) ====================
+export const getDashboardStats = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const countsResult = await pool.query(
+      `SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN is_favorite = true THEN 1 ELSE 0 END) as favorites,
+        SUM(CASE WHEN is_pinned = true THEN 1 ELSE 0 END) as pinned,
+        SUM(CASE WHEN is_archived = true THEN 1 ELSE 0 END) as archived,
+        SUM(CASE WHEN is_deleted = true THEN 1 ELSE 0 END) as trash,
+        SUM(CASE WHEN DATE(created_at) = CURRENT_DATE THEN 1 ELSE 0 END) as today
+       FROM notes 
+       WHERE user_id = $1`,
+      [userId]
+    );
+    
+    const categoriesResult = await pool.query(
+      `SELECT category, COUNT(*) as count
+       FROM notes 
+       WHERE user_id = $1 AND is_deleted = false
+       GROUP BY category
+       ORDER BY count DESC`,
+      [userId]
+    );
+    
+    const activityResult = await pool.query(
+      `SELECT DATE(created_at) as date, COUNT(*) as count
+       FROM notes 
+       WHERE user_id = $1 AND is_deleted = false AND created_at > NOW() - INTERVAL '7 days'
+       GROUP BY DATE(created_at)
+       ORDER BY date ASC`,
+      [userId]
+    );
+    
+    const foldersResult = await pool.query(
+      'SELECT COUNT(*) as folder_count FROM folders WHERE user_id = $1',
+      [userId]
+    );
+    
+    res.json({
+      success: true,
+      stats: {
+        totalNotes: parseInt(countsResult.rows[0].total),
+        favorites: parseInt(countsResult.rows[0].favorites),
+        pinned: parseInt(countsResult.rows[0].pinned),
+        archived: parseInt(countsResult.rows[0].archived),
+        trash: parseInt(countsResult.rows[0].trash),
+        notesToday: parseInt(countsResult.rows[0].today),
+        categories: categoriesResult.rows,
+        weeklyActivity: activityResult.rows,
+        folders: parseInt(foldersResult.rows[0].folder_count)
+      }
+    });
+  } catch (error) {
+    logger.error('Get dashboard stats error:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
 
-// Create a collaboration table (run this SQL in your database)
-// CREATE TABLE IF NOT EXISTS collaborations (
-//   id SERIAL PRIMARY KEY,
-//   note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
-//   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-//   invited_by INTEGER REFERENCES users(id),
-//   permission VARCHAR(20) DEFAULT 'viewer',
-//   status VARCHAR(20) DEFAULT 'pending',
-//   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-//   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-//   UNIQUE(note_id, user_id)
-// );
+// ==================== GET NOTEBOOKS (Categories with counts) ====================
+export const getNotebooks = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const result = await pool.query(
+      `SELECT category, COUNT(*) as count
+       FROM notes 
+       WHERE user_id = $1 AND is_deleted = false
+       GROUP BY category
+       ORDER BY count DESC`,
+      [userId]
+    );
+    
+    res.json({ success: true, notebooks: result.rows });
+  } catch (error) {
+    logger.error('Get notebooks error:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ==================== GET TAGS (All unique tags with counts) ====================
+export const getTags = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const result = await pool.query(
+      `SELECT tag, COUNT(*) as count
+       FROM (
+         SELECT UNNEST(tags) as tag
+         FROM notes 
+         WHERE user_id = $1 AND is_deleted = false AND tags IS NOT NULL AND array_length(tags, 1) > 0
+       ) as tag_list
+       GROUP BY tag
+       ORDER BY count DESC`,
+      [userId]
+    );
+    
+    res.json({ success: true, tags: result.rows });
+  } catch (error) {
+    logger.error('Get tags error:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ==================== FOLDER FUNCTIONS ====================
+
+// Get all folders for user
+export const getFolders = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const result = await pool.query(
+      `SELECT id, name, icon, color, parent_id, note_count, created_at, updated_at
+       FROM folders 
+       WHERE user_id = $1
+       ORDER BY name ASC`,
+      [userId]
+    );
+    
+    // Get folder hierarchy
+    const folders = result.rows;
+    const folderMap = {};
+    const rootFolders = [];
+    
+    folders.forEach(folder => {
+      folderMap[folder.id] = { ...folder, children: [] };
+    });
+    
+    folders.forEach(folder => {
+      if (folder.parent_id && folderMap[folder.parent_id]) {
+        folderMap[folder.parent_id].children.push(folderMap[folder.id]);
+      } else {
+        rootFolders.push(folderMap[folder.id]);
+      }
+    });
+    
+    res.json({ success: true, folders: rootFolders, flatFolders: folders });
+  } catch (error) {
+    logger.error('Get folders error:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Create a new folder
+export const createFolder = async (req, res) => {
+  try {
+    const { name, icon, color, parent_id } = req.body;
+    const userId = req.user.id;
+    
+    if (!name) {
+      return res.status(400).json({ message: 'Folder name is required' });
+    }
+    
+    // Check if folder already exists
+    const existing = await pool.query(
+      'SELECT id FROM folders WHERE user_id = $1 AND name = $2',
+      [userId, name]
+    );
+    
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ message: 'Folder already exists' });
+    }
+    
+    const result = await pool.query(
+      `INSERT INTO folders (user_id, name, icon, color, parent_id)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, name, icon, color, parent_id, note_count, created_at`,
+      [userId, name, icon || '📁', color || '#a78bfa', parent_id || null]
+    );
+    
+    logUserActivity(req.user.name, req.user.email, 'CREATE_FOLDER', `Folder created: ${name}`);
+    
+    res.status(201).json({ success: true, folder: result.rows[0] });
+  } catch (error) {
+    logger.error('Create folder error:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Update folder
+export const updateFolder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, icon, color } = req.body;
+    const userId = req.user.id;
+    
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+    
+    if (name !== undefined) {
+      updates.push(`name = $${paramCount++}`);
+      values.push(name);
+    }
+    if (icon !== undefined) {
+      updates.push(`icon = $${paramCount++}`);
+      values.push(icon);
+    }
+    if (color !== undefined) {
+      updates.push(`color = $${paramCount++}`);
+      values.push(color);
+    }
+    
+    if (updates.length === 0) {
+      return res.status(400).json({ message: 'No fields to update' });
+    }
+    
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(id, userId);
+    
+    const result = await pool.query(
+      `UPDATE folders SET ${updates.join(', ')} 
+       WHERE id = $${paramCount} AND user_id = $${paramCount + 1}
+       RETURNING id, name, icon, color, parent_id, note_count, created_at`,
+      values
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Folder not found' });
+    }
+    
+    logUserActivity(req.user.name, req.user.email, 'UPDATE_FOLDER', `Folder updated: ${result.rows[0].name}`);
+    
+    res.json({ success: true, folder: result.rows[0] });
+  } catch (error) {
+    logger.error('Update folder error:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Delete folder
+export const deleteFolder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    
+    // Get folder name first
+    const folderResult = await pool.query(
+      'SELECT name FROM folders WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+    
+    if (folderResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Folder not found' });
+    }
+    
+    const folderName = folderResult.rows[0].name;
+    
+    // Move notes to uncategorized (folder_id = NULL) before deleting folder
+    await pool.query(
+      'UPDATE notes SET folder_id = NULL WHERE folder_id = $1 AND user_id = $2',
+      [id, userId]
+    );
+    
+    // Delete subfolders recursively
+    await pool.query(
+      'DELETE FROM folders WHERE id = $1 OR parent_id = $1',
+      [id]
+    );
+    
+    logUserActivity(req.user.name, req.user.email, 'DELETE_FOLDER', `Folder deleted: ${folderName}`);
+    
+    res.json({ success: true, message: 'Folder deleted successfully' });
+  } catch (error) {
+    logger.error('Delete folder error:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Move note to folder
+export const moveNoteToFolder = async (req, res) => {
+  try {
+    const { id } = req.params; // note id
+    const { folderId } = req.body;
+    const userId = req.user.id;
+    
+    const result = await pool.query(
+      'UPDATE notes SET folder_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND user_id = $3 RETURNING id',
+      [folderId === 'null' ? null : folderId, id, userId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Note not found' });
+    }
+    
+    // Update folder note counts
+    await pool.query(
+      `UPDATE folders SET note_count = (
+        SELECT COUNT(*) FROM notes WHERE folder_id = folders.id AND is_deleted = false
+      ) WHERE user_id = $1`,
+      [userId]
+    );
+    
+    res.json({ success: true, message: 'Note moved successfully' });
+  } catch (error) {
+    logger.error('Move note to folder error:', error.message);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ==================== COLLABORATION FUNCTIONS ====================
 
 // ==================== GET COLLABORATORS ====================
 export const getCollaborators = async (req, res) => {
   try {
     const { id } = req.params;
     
-    // First, verify the user owns this note or is a collaborator
     const noteCheck = await pool.query(
       'SELECT user_id FROM notes WHERE id = $1 AND is_deleted = false',
       [id]
@@ -433,7 +795,6 @@ export const getCollaborators = async (req, res) => {
     const isOwner = noteCheck.rows[0].user_id === req.user.id;
     
     if (!isOwner) {
-      // Check if user is a collaborator
       const collabCheck = await pool.query(
         'SELECT * FROM collaborations WHERE note_id = $1 AND user_id = $2 AND status = $3',
         [id, req.user.id, 'accepted']
@@ -444,7 +805,6 @@ export const getCollaborators = async (req, res) => {
       }
     }
     
-    // Get all collaborators for this note
     const result = await pool.query(
       `SELECT c.id, c.user_id, c.permission, c.status, c.created_at,
               u.name, u.email, u.avatar
@@ -455,7 +815,6 @@ export const getCollaborators = async (req, res) => {
       [id]
     );
     
-    // Get owner info
     const ownerResult = await pool.query(
       'SELECT id, name, email, avatar FROM users WHERE id = $1',
       [noteCheck.rows[0].user_id]
@@ -492,7 +851,6 @@ export const inviteCollaborator = async (req, res) => {
       return res.status(400).json({ message: 'Email is required' });
     }
     
-    // Check if user owns the note
     const noteCheck = await pool.query(
       'SELECT user_id, title FROM notes WHERE id = $1 AND is_deleted = false',
       [id]
@@ -506,7 +864,6 @@ export const inviteCollaborator = async (req, res) => {
       return res.status(403).json({ message: 'Only the note owner can invite collaborators' });
     }
     
-    // Find the user by email
     const userResult = await pool.query(
       'SELECT id, name, email FROM users WHERE email = $1',
       [email.toLowerCase()]
@@ -518,7 +875,6 @@ export const inviteCollaborator = async (req, res) => {
     
     const invitedUser = userResult.rows[0];
     
-    // Check if already a collaborator
     const existingCollab = await pool.query(
       'SELECT * FROM collaborations WHERE note_id = $1 AND user_id = $2',
       [id, invitedUser.id]
@@ -528,12 +884,10 @@ export const inviteCollaborator = async (req, res) => {
       return res.status(400).json({ message: 'User is already a collaborator' });
     }
     
-    // Check if trying to invite the owner
     if (invitedUser.id === req.user.id) {
       return res.status(400).json({ message: 'You cannot invite yourself' });
     }
     
-    // Add collaborator
     await pool.query(
       `INSERT INTO collaborations (note_id, user_id, invited_by, permission, status)
        VALUES ($1, $2, $3, $4, $5)`,
@@ -570,7 +924,6 @@ export const removeCollaborator = async (req, res) => {
       return res.status(400).json({ message: 'User ID is required' });
     }
     
-    // Check if user owns the note
     const noteCheck = await pool.query(
       'SELECT user_id, title FROM notes WHERE id = $1 AND is_deleted = false',
       [id]
@@ -584,7 +937,6 @@ export const removeCollaborator = async (req, res) => {
       return res.status(403).json({ message: 'Only the note owner can remove collaborators' });
     }
     
-    // Remove collaborator
     const result = await pool.query(
       'DELETE FROM collaborations WHERE note_id = $1 AND user_id = $2 RETURNING user_id',
       [id, userId]
@@ -617,7 +969,6 @@ export const updateCollaboratorPermission = async (req, res) => {
       return res.status(400).json({ message: 'Invalid permission type' });
     }
     
-    // Check if user owns the note
     const noteCheck = await pool.query(
       'SELECT user_id FROM notes WHERE id = $1 AND is_deleted = false',
       [id]

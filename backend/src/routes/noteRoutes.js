@@ -14,10 +14,18 @@ import {
   permanentDeleteNote,
   togglePin,
   getUserStats,
-  getCollaborators,              // ✅ Added
-  inviteCollaborator,            // ✅ Added
-  removeCollaborator,            // ✅ Added
-  updateCollaboratorPermission,  // ✅ Added
+  getCollaborators,
+  inviteCollaborator,
+  removeCollaborator,
+  updateCollaboratorPermission,
+  getNotebooks,
+  getTags,
+  getFolders,
+  createFolder,
+  updateFolder,
+  deleteFolder,
+  moveNoteToFolder,
+  getDashboardStats
 } from '../controllers/noteController.js';
 
 const router = express.Router();
@@ -25,37 +33,47 @@ const router = express.Router();
 // All routes require authentication
 router.use(protect);
 
-// Note CRUD routes
+// ==================== NOTE CRUD ROUTES ====================
 router.route('/')
   .get(getNotes)
   .post(createNote);
 
-// Activity logs
+// ==================== ACTIVITY & STATS ROUTES ====================
 router.get('/activity-logs', getActivityLogs);
-
-// User stats
 router.get('/stats', getUserStats);
+router.get('/dashboard-stats', getDashboardStats);
 
-// Trash routes
+// ==================== TRASH ROUTES ====================
 router.get('/trash', getTrashedNotes);
 router.put('/:id/restore', restoreNote);
 router.delete('/:id/permanent', permanentDeleteNote);
 
-// Single note operations
+// ==================== SINGLE NOTE OPERATIONS ====================
 router.route('/:id')
   .get(getNoteById)
   .put(updateNote)
   .delete(deleteNote);
 
-// Favorite, Archive, and Pin toggles
+// ==================== NOTE ACTIONS (Favorite, Archive, Pin) ====================
 router.put('/:id/favorite', toggleFavorite);
 router.put('/:id/archive', toggleArchive);
 router.put('/:id/pin', togglePin);
 
+// ==================== NOTEBOOKS & TAGS ROUTES ====================
+router.get('/notebooks', getNotebooks);
+router.get('/tags', getTags);
+
+// ==================== FOLDER ROUTES ====================
+router.get('/folders', getFolders);
+router.post('/folders', createFolder);
+router.put('/folders/:id', updateFolder);
+router.delete('/folders/:id', deleteFolder);
+router.put('/notes/:id/move', moveNoteToFolder);
+
 // ==================== COLLABORATION ROUTES ====================
-router.get('/:id/collaborators', getCollaborators);                      // Get all collaborators for a note
-router.post('/:id/invite', inviteCollaborator);                          // Invite a user to collaborate
-router.delete('/:id/collaborators', removeCollaborator);                 // Remove a collaborator
-router.put('/:id/collaborators/permission', updateCollaboratorPermission); // Update collaborator permission
+router.get('/:id/collaborators', getCollaborators);
+router.post('/:id/invite', inviteCollaborator);
+router.delete('/:id/collaborators', removeCollaborator);
+router.put('/:id/collaborators/permission', updateCollaboratorPermission);
 
 export default router;
