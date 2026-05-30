@@ -3,7 +3,7 @@ import pool from '../config/db.js';
 import generateToken from '../utils/generateToken.js';
 import logger, { logUserActivity } from '../utils/logger.js';
 import { generateOTPWithExpiry } from '../utils/generateOTP.js';
-import { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail } from '../services/emailService.js';
+import { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail, sendOtpEmail, sendInvitationEmail } from '../services/emailService.js';
 
 // Register user (SIMPLIFIED - no OTP model dependency)
 export const registerUser = async (req, res) => {
@@ -927,5 +927,66 @@ export const updateFontSize = async (req, res) => {
   } catch (error) {
     console.error('❌ Update font size error:', error);
     res.status(500).json({ message: error.message });
+  }
+};
+
+// ============================================
+// NEW OTP & INVITATION FUNCTIONS
+// ============================================
+
+// ✅ Send OTP for two-factor authentication
+export const sendOTP = async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    
+    // Store OTP in database
+    await pool.query(
+      `INSERT INTO otps (email, otp, purpose, expires_at, created_at)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (email, purpose) 
+       DO UPDATE SET otp = $2, expires_at = $4, created_at = $5`,
+      [email.toLowerCase(), otp, 'two_factor', expiresAt, new Date()]
+    );
+    
+    // Send OTP email
+    await sendOtpEmail(email, otp);
+    
+    console.log(`📧 Two-factor OTP sent to: ${email}`);
+    res.json({ success: true, message: 'OTP sent to your email' });
+  } catch (error) {
+    console.error('❌ Send OTP error:', error);
+    res.status(500).json({ message: 'Failed to send OTP' });
+  }
+};
+
+// ✅ Send invitation email handler
+export const sendInvitationEmailHandler = async (req, res) => {
+  try {
+    const { email, noteId, noteTitle } = req.body;
+    
+    if (!email || !noteId) {
+      return res.status(400).json({ message: 'Email and noteId are required' });
+    }
+    
+    await sendInvitationEmail(
+      email,
+      req.user.name,
+      noteTitle || 'a note',
+      noteId
+    );
+    
+    console.log(`📧 Invitation email sent to: ${email}`);
+    res.json({ success: true, message: `Invitation email sent to ${email}` });
+  } catch (error) {
+    console.error('❌ Send invitation email error:', error);
+    res.status(500).json({ message: 'Failed to send invitation email' });
   }
 };

@@ -46,6 +46,39 @@ export const protect = async (req, res, next) => {
   }
 };
 
+// ✅ NEW: Middleware to check if 2FA is verified for sensitive routes
+// Use this on routes that require two-factor authentication to be completed
+export const requireTwoFactorVerified = (req, res, next) => {
+  // Check if user has 2FA enabled and if it's verified in session
+  if (req.user?.two_factor_enabled && !req.session?.twoFactorVerified) {
+    return res.status(403).json({ 
+      success: false,
+      message: 'Two-factor authentication required. Please verify your OTP first.',
+      requiresTwoFactor: true 
+    });
+  }
+  next();
+};
+
+// Optional: Session-based 2FA verification tracker
+// Call this after successful OTP verification
+export const setTwoFactorVerified = (req, res, next) => {
+  if (!req.session) {
+    // Initialize session if not exists
+    req.session = {};
+  }
+  req.session.twoFactorVerified = true;
+  next();
+};
+
+// Optional: Clear 2FA verification on logout
+export const clearTwoFactorVerified = (req, res, next) => {
+  if (req.session) {
+    req.session.twoFactorVerified = false;
+  }
+  next();
+};
+
 // Optional: Role-based authorization middleware (for future use)
 export const authorize = (...roles) => {
   return (req, res, next) => {
@@ -57,4 +90,16 @@ export const authorize = (...roles) => {
     }
     next();
   };
+};
+
+// Optional: Check if email is verified
+export const requireVerifiedEmail = (req, res, next) => {
+  if (!req.user?.is_verified) {
+    return res.status(403).json({ 
+      success: false,
+      message: 'Email not verified. Please verify your email address first.',
+      requiresVerification: true 
+    });
+  }
+  next();
 };

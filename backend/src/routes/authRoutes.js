@@ -21,7 +21,9 @@ import {
   updateNotifications,
   updateEditorPreferences,
   updatePrivacySettings,
-  updateFontSize
+  updateFontSize,
+  sendOTP,
+  sendInvitationEmailHandler
 } from '../controllers/authController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import { 
@@ -42,6 +44,11 @@ router.post('/verify-otp', otpLimiter, verifyOTP);
 router.post('/resend-otp', otpLimiter, resendOTP);
 router.post('/forgot-password', otpLimiter, forgotPassword);
 router.post('/reset-password', resetPasswordLimiter, resetPassword);
+
+// ============================================
+// OTP ROUTES (For two-factor authentication)
+// ============================================
+router.post('/send-otp', otpLimiter, sendOTP);
 
 // ============================================
 // PROTECTED ROUTES (Authentication required)
@@ -94,5 +101,11 @@ router.get('/sessions', protect, getActiveSessions);
 // STATS & DASHBOARD
 // ============================================
 router.get('/stats', protect, getUserStats);
+
+// ============================================
+// INVITATION ROUTES
+// ============================================
+// This route is for frontend to trigger invitation emails if needed
+router.post('/send-invitation-email', protect, sendInvitationEmailHandler);
 
 export default router;

@@ -1,5 +1,6 @@
 import pool from '../config/db.js';
 import logger, { logUserActivity } from '../utils/logger.js';
+import { sendInvitationEmail } from '../services/emailService.js';
 
 // Helper to strip HTML tags for plain content
 const stripHtml = (html) => {
@@ -841,7 +842,7 @@ export const getCollaborators = async (req, res) => {
   }
 };
 
-// ==================== INVITE COLLABORATOR ====================
+// ==================== INVITE COLLABORATOR (UPDATED WITH EMAIL) ====================
 export const inviteCollaborator = async (req, res) => {
   try {
     const { id } = req.params;
@@ -893,6 +894,20 @@ export const inviteCollaborator = async (req, res) => {
        VALUES ($1, $2, $3, $4, $5)`,
       [id, invitedUser.id, req.user.id, permission, 'accepted']
     );
+    
+    // ✅ SEND INVITATION EMAIL
+    try {
+      await sendInvitationEmail(
+        invitedUser.email,
+        req.user.name,
+        noteCheck.rows[0].title,
+        id
+      );
+      console.log(`📧 Invitation email sent to: ${invitedUser.email}`);
+    } catch (emailError) {
+      console.error('⚠️ Failed to send invitation email:', emailError.message);
+      // Don't block the invitation if email fails
+    }
     
     logUserActivity(req.user.name, req.user.email, 'INVITE_COLLABORATOR', `Invited ${email} to note: ${noteCheck.rows[0].title}`);
     

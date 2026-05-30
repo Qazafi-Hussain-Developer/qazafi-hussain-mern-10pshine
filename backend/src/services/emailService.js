@@ -122,7 +122,7 @@ export const sendVerificationEmail = async (email, name, otp) => {
   const html = `
     <!DOCTYPE html>
     <html>
-    <head>
+   head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Welcome to Lavender Notes</title>
@@ -482,6 +482,252 @@ export const sendWelcomeEmail = async (email, name) => {
   return await sendEmail(email, subject, html);
 };
 
+// ============================================
+// NEW: Send OTP for two-factor authentication
+// ============================================
+export const sendOtpEmail = async (email, otp) => {
+  const subject = '🔐 Your Lavender Notes Verification Code';
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Verification Code</title>
+      <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          line-height: 1.6;
+          margin: 0;
+          padding: 0;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+          max-width: 520px;
+          margin: 0 auto;
+          padding: 40px 20px;
+        }
+        .card {
+          background: #ffffff;
+          border-radius: 28px;
+          padding: 48px 40px;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+          text-align: center;
+        }
+        .logo {
+          font-size: 48px;
+          margin-bottom: 16px;
+        }
+        h1 {
+          color: #764ba2;
+          font-size: 26px;
+          font-weight: 700;
+          margin: 0 0 8px 0;
+        }
+        .otp-code {
+          font-size: 48px;
+          font-weight: 800;
+          letter-spacing: 12px;
+          color: #764ba2;
+          background: linear-gradient(135deg, #f3eaff 0%, #f9f5ff 100%);
+          padding: 24px 20px;
+          border-radius: 20px;
+          font-family: 'Courier New', 'SF Mono', monospace;
+          display: inline-block;
+          margin: 28px 0;
+          border: 1px solid #e8ddf5;
+        }
+        .expiry {
+          font-size: 13px;
+          color: #a78bfa;
+          margin-top: 16px;
+          padding: 8px 16px;
+          background: #f9f5ff;
+          border-radius: 40px;
+          display: inline-block;
+        }
+        .footer {
+          margin-top: 32px;
+          font-size: 12px;
+          color: #a0aec0;
+          text-align: center;
+        }
+        .warning {
+          background: #fff8e8;
+          border-radius: 12px;
+          padding: 12px;
+          margin-top: 24px;
+          font-size: 12px;
+          color: #b76e0a;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="card">
+          <div class="logo">🔐✨</div>
+          <h1>Verification Code</h1>
+          <p style="color: #4a5568;">Enter this code to complete your login:</p>
+          <div class="otp-code">${otp}</div>
+          <p class="expiry">⏰ This code expires in <strong>10 minutes</strong></p>
+          <div class="warning">
+            🔒 This is a one-time verification code. Never share this code with anyone.
+          </div>
+        </div>
+        <div class="footer">
+          <p>Lavender Notes - Your digital zen workspace</p>
+          <p style="margin-top: 8px;">If you didn't request this, please ignore this email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendEmail(email, subject, html);
+};
+
+// ============================================
+// NEW: Send invitation email for note collaboration
+// ============================================
+export const sendInvitationEmail = async (email, inviterName, noteTitle, noteId) => {
+  const subject = `🤝 ${inviterName} invited you to collaborate on "${noteTitle}"`;
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Collaboration Invitation</title>
+      <style>
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+          line-height: 1.6;
+          margin: 0;
+          padding: 0;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container {
+          max-width: 560px;
+          margin: 0 auto;
+          padding: 40px 20px;
+        }
+        .card {
+          background: #ffffff;
+          border-radius: 28px;
+          padding: 48px 40px;
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+          text-align: center;
+        }
+        .logo {
+          font-size: 56px;
+          margin-bottom: 16px;
+        }
+        h1 {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          font-size: 28px;
+          font-weight: 700;
+          margin: 0 0 8px 0;
+        }
+        .invite-details {
+          background: linear-gradient(135deg, #f9f5ff 0%, #f0e6ff 100%);
+          border-radius: 20px;
+          padding: 24px;
+          margin: 28px 0;
+        }
+        .inviter-name {
+          font-size: 18px;
+          font-weight: 700;
+          color: #764ba2;
+          margin-bottom: 8px;
+        }
+        .note-title {
+          font-size: 20px;
+          font-weight: 700;
+          color: #667eea;
+          background: white;
+          padding: 12px 20px;
+          border-radius: 40px;
+          display: inline-block;
+          margin: 12px 0;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .cta-button {
+          display: inline-block;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          text-decoration: none;
+          padding: 14px 32px;
+          border-radius: 40px;
+          font-weight: 600;
+          font-size: 16px;
+          margin: 20px 0;
+          transition: transform 0.2s, box-shadow 0.2s;
+          box-shadow: 0 4px 15px rgba(103, 75, 181, 0.3);
+        }
+        .cta-button:hover {
+          transform: scale(1.02);
+          box-shadow: 0 6px 20px rgba(103, 75, 181, 0.4);
+        }
+        .footer {
+          margin-top: 32px;
+          font-size: 12px;
+          color: #a0aec0;
+          text-align: center;
+        }
+        .tip {
+          background: #fff8e8;
+          border-radius: 12px;
+          padding: 12px;
+          margin-top: 24px;
+          font-size: 12px;
+          color: #b76e0a;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="card">
+          <div class="logo">🤝✨</div>
+          <h1>Collaboration Invitation</h1>
+          <p style="color: #4a5568;">You've been invited to collaborate on a note!</p>
+          
+          <div class="invite-details">
+            <div class="inviter-name">📧 ${inviterName}</div>
+            <div style="font-size: 14px; color: #7a7583;">has invited you to collaborate on:</div>
+            <div class="note-title">📄 "${noteTitle}"</div>
+            <div style="font-size: 13px; color: #a78bfa; margin-top: 8px;">
+              🔑 Permission: Editor
+            </div>
+          </div>
+          
+          <p>You can view, edit, and collaborate on this note with the team.</p>
+          
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/editor/${noteId}" class="cta-button">
+            🚀 View & Collaborate →
+          </a>
+          
+          <div class="tip">
+            💡 <strong>Tip:</strong> If you don't have an account yet, you'll be prompted to sign up first.
+          </div>
+        </div>
+        
+        <div class="footer">
+          <p>Lavender Notes - Your digital zen workspace</p>
+          <p style="margin-top: 8px;">© 2024 Lavender Notes. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return await sendEmail(email, subject, html);
+};
+
 // Test email configuration
 export const testEmailConfig = async () => {
   if (resend) {
@@ -498,5 +744,7 @@ export default {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendWelcomeEmail,
+  sendOtpEmail,
+  sendInvitationEmail,
   testEmailConfig,
 };
