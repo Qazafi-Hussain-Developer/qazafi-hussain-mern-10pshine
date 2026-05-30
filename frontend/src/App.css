@@ -1,3 +1,5 @@
+/* App.css - Complete Fixed Version */
+
 /* Loading Screen */
 .loading-screen {
   display: flex;
@@ -5,8 +7,26 @@
   justify-content: center;
   min-height: 100vh;
   font-size: 18px;
-  color: #674bb5;
-  background-color: #fcf8ff;
+  font-weight: 500;
+  color: var(--accent-color, #674bb5);
+  background-color: var(--bg-secondary, #fcf8ff);
+}
+
+.loading-screen::before {
+  content: "";
+  width: 40px;
+  height: 40px;
+  margin-right: 12px;
+  border: 3px solid var(--border-color, #e0d4f5);
+  border-top-color: var(--accent-color, #a78bfa);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Coming Soon Page */
@@ -17,24 +37,24 @@
   justify-content: center;
   min-height: 100vh;
   text-align: center;
-  background: linear-gradient(135deg, #fcf8ff 0%, #f0e9ff 100%);
+  background: linear-gradient(135deg, var(--bg-secondary, #fcf8ff) 0%, var(--bg-tertiary, #f0e9ff) 100%);
 }
 
 .coming-soon-page h1 {
   font-size: 48px;
   font-weight: 700;
-  color: #1d1a21;
+  color: var(--text-primary, #1d1a21);
   margin-bottom: 16px;
 }
 
 .coming-soon-page p {
   font-size: 18px;
-  color: #494552;
+  color: var(--text-secondary, #494552);
   margin-bottom: 32px;
 }
 
 .coming-soon-page button {
-  background-color: #674bb5;
+  background: linear-gradient(135deg, var(--accent-color, #a78bfa), var(--accent-hover, #674bb5));
   color: white;
   border: none;
   padding: 12px 32px;
@@ -42,10 +62,72 @@
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(103, 75, 181, 0.2);
 }
 
 .coming-soon-page button:hover {
-  background-color: #5a3da0;
   transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(103, 75, 181, 0.3);
+}
+
+.coming-soon-page button:active {
+  transform: translateY(0);
+}
+
+/* Theme transition for all elements */
+.app,
+.loading-screen,
+.coming-soon-page {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Dark mode support for loading screen */
+[data-theme="dark"] .loading-screen {
+  background-color: var(--bg-secondary, #0f0f23);
+  color: var(--accent-color, #c4b5fd);
+}
+
+[data-theme="dark"] .loading-screen::before {
+  border-color: var(--border-color, #2d2d44);
+  border-top-color: var(--accent-color, #a78bfa);
+}
+
+/* Dark mode support for coming soon page */
+[data-theme="dark"] .coming-soon-page {
+  background: linear-gradient(135deg, var(--bg-secondary, #0f0f23) 0%, var(--bg-tertiary, #16213e) 100%);
+}
+
+[data-theme="dark"] .coming-soon-page h1 {
+  color: var(--text-primary, #e0e0e0);
+}
+
+[data-theme="dark"] .coming-soon-page p {
+  color: var(--text-secondary, #a0a0a0);
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .coming-soon-page h1 {
+    font-size: 32px;
+  }
+  
+  .coming-soon-page p {
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+  
+  .coming-soon-page button {
+    padding: 10px 24px;
+    font-size: 14px;
+  }
+  
+  .loading-screen {
+    font-size: 16px;
+  }
+  
+  .loading-screen::before {
+    width: 30px;
+    height: 30px;
+  }
 }

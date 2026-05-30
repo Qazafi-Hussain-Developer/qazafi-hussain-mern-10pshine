@@ -14,13 +14,13 @@ const Profile = () => {
     name: '',
     email: '',
     displayName: '',
-    bio: '',                          // ✅ Added bio
-    joinDate: '',                     // ✅ Added join date
-    totalNotes: 0,                    // ✅ Added total notes
-    totalFolders: 0,                  // ✅ Added total folders
+    bio: '',
+    joinDate: '',
+    totalNotes: 0,
+    totalFolders: 0,
     timezone: 'Pacific Standard Time (PST)',
-    twoFactorEnabled: true,
-    activeSessions: 3,
+    twoFactorEnabled: false,
+    activeSessions: 1,
     theme: 'light',
     avatar: null,
     avatarPreview: null
@@ -34,6 +34,7 @@ const Profile = () => {
   // Fetch user profile from backend
   useEffect(() => {
     fetchUserProfile()
+    fetchUserStats()
   }, [])
 
   const fetchUserProfile = async () => {
@@ -49,12 +50,6 @@ const Profile = () => {
       const data = await response.json()
       
       if (response.ok && data.success) {
-        // Fetch notes count
-        const notesResponse = await fetch('http://localhost:5000/api/notes', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-        const notesData = await notesResponse.json()
-        
         const profileData = {
           name: data.user.name || '',
           email: data.user.email || '',
@@ -63,14 +58,12 @@ const Profile = () => {
           joinDate: data.user.created_at 
             ? new Date(data.user.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) 
             : 'May 2024',
-          totalNotes: notesData.notes?.length || 0,
-          totalFolders: 5, // This will be dynamic when folders feature is added
-          timezone: user.timezone,
-          twoFactorEnabled: user.twoFactorEnabled,
-          activeSessions: user.activeSessions,
+          timezone: data.user.timezone || 'Pacific Standard Time (PST)',
+          twoFactorEnabled: data.user.twoFactorEnabled || false,
           theme: data.user.theme || 'light',
           avatar: data.user.avatar || null,
-          avatarPreview: data.user.avatar || null
+          avatarPreview: data.user.avatar || null,
+          preferences: data.user.preferences || {}
         }
         setUser(profileData)
         setFormData(profileData)
@@ -81,6 +74,50 @@ const Profile = () => {
       setLoading(false)
     }
   }
+
+  const fetchUserStats = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/stats', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      
+      if (response.ok && data.success) {
+        setUser(prev => ({
+          ...prev,
+          totalNotes: data.stats?.totalNotes || 0,
+          totalFolders: data.stats?.folders || 0
+        }))
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error)
+    }
+  }
+
+  const fetchActiveSessions = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/sessions', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      const data = await response.json()
+      
+      if (response.ok && data.success) {
+        setUser(prev => ({
+          ...prev,
+          activeSessions: data.count || 1
+        }))
+      }
+    } catch (error) {
+      console.error('Error fetching sessions:', error)
+    }
+  }
+
+  // Fetch active sessions on mount
+  useEffect(() => {
+    if (token) {
+      fetchActiveSessions()
+    }
+  }, [token])
 
   const handleChange = (e) => {
     setFormData({
@@ -161,8 +198,9 @@ const Profile = () => {
         body: JSON.stringify({
           name: formData.displayName,
           email: formData.email,
-          bio: formData.bio,                    // ✅ Added bio update
-          theme: formData.theme || user.theme
+          bio: formData.bio,
+          theme: formData.theme || user.theme,
+          timezone: formData.timezone
         })
       })
       
@@ -175,7 +213,8 @@ const Profile = () => {
           email: data.user.email,
           displayName: data.user.name,
           bio: formData.bio || user.bio,
-          theme: data.user.theme
+          theme: data.user.theme,
+          timezone: data.user.timezone || user.timezone
         }
         setUser(updatedUser)
         setFormData({
@@ -188,7 +227,8 @@ const Profile = () => {
           name: data.user.name, 
           email: data.user.email,
           bio: formData.bio,
-          theme: data.user.theme 
+          theme: data.user.theme,
+          timezone: data.user.timezone
         })
         
         setIsEditing(false)
@@ -245,10 +285,51 @@ const Profile = () => {
     }
   }
 
+  const handleToggleTwoFactor = async () => {
+    const newState = !user.twoFactorEnabled
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/two-factor', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ enabled: newState })
+      })
+      
+      const data = await response.json()
+      
+      if (response.ok && data.success) {
+        setUser({ ...user, twoFactorEnabled: newState })
+        setMessage({ type: 'success', text: data.message })
+        setTimeout(() => setMessage({ type: '', text: '' }), 3000)
+      } else {
+        setMessage({ type: 'error', text: data.message || 'Failed to update two-factor authentication' })
+      }
+    } catch (error) {
+      console.error('Error toggling two-factor:', error)
+      setMessage({ type: 'error', text: 'Unable to update two-factor authentication' })
+    }
+  }
+
   const handleDeleteAccount = async () => {
-    if (window.confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-      logout()
-      navigate('/login')
+    if (window.confirm('⚠️ WARNING: This will permanently delete your account and ALL your notes. This action cannot be undone. Are you absolutely sure?')) {
+      try {
+        const response = await fetch('http://localhost:5000/api/auth/delete-account', {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        
+        if (response.ok) {
+          logout()
+          navigate('/login')
+        } else {
+          setMessage({ type: 'error', text: 'Failed to delete account' })
+        }
+      } catch (error) {
+        console.error('Error deleting account:', error)
+        setMessage({ type: 'error', text: 'Unable to delete account' })
+      }
     }
   }
 
@@ -280,9 +361,18 @@ const Profile = () => {
         
         if (theme === 'dark') {
           document.documentElement.setAttribute('data-theme', 'dark')
+        } else if (theme === 'system') {
+          const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          if (systemPrefersDark) {
+            document.documentElement.setAttribute('data-theme', 'dark')
+          } else {
+            document.documentElement.removeAttribute('data-theme')
+          }
         } else {
           document.documentElement.removeAttribute('data-theme')
         }
+        
+        localStorage.setItem('theme', theme)
         setMessage({ type: 'success', text: 'Theme updated!' })
         setTimeout(() => setMessage({ type: '', text: '' }), 2000)
       }
@@ -398,14 +488,14 @@ const Profile = () => {
             <div className="stat-card-mini">
               <span className="stat-icon-mini">⭐</span>
               <div>
-                <h3>{Math.floor(user.totalNotes * 0.3)}</h3>
+                <h3>{user.totalNotes > 0 ? Math.floor(user.totalNotes * 0.3) : 0}</h3>
                 <p>Favorites</p>
               </div>
             </div>
             <div className="stat-card-mini">
               <span className="stat-icon-mini">🔥</span>
               <div>
-                <h3>{Math.floor(user.totalNotes / 7) || 1}</h3>
+                <h3>{user.totalNotes > 0 ? Math.floor(user.totalNotes / 7) || 1 : 1}</h3>
                 <p>Week Streak</p>
               </div>
             </div>
@@ -426,7 +516,7 @@ const Profile = () => {
                     <input
                       type="text"
                       name="displayName"
-                      value={formData.displayName}
+                      value={formData.displayName || user.displayName}
                       onChange={handleChange}
                       className="profile-input"
                     />
@@ -436,7 +526,7 @@ const Profile = () => {
                     <input
                       type="email"
                       name="email"
-                      value={formData.email}
+                      value={formData.email || user.email}
                       onChange={handleChange}
                       className="profile-input"
                     />
@@ -456,7 +546,7 @@ const Profile = () => {
                     <label>Timezone</label>
                     <select
                       name="timezone"
-                      value={formData.timezone}
+                      value={formData.timezone || user.timezone}
                       onChange={handleChange}
                       className="profile-select"
                     >
@@ -518,7 +608,7 @@ const Profile = () => {
                   <span className="material-symbols-outlined">password</span>
                   <div>
                     <p className="security-label">Password</p>
-                    <p className="security-description">Last changed 3 months ago</p>
+                    <p className="security-description">Change your password</p>
                   </div>
                 </div>
                 <span className="material-symbols-outlined">chevron_right</span>
@@ -528,14 +618,14 @@ const Profile = () => {
                   <span className="material-symbols-outlined">vibration</span>
                   <div>
                     <p className="security-label">Two-Factor Auth</p>
-                    <p className="security-description enabled">Enabled</p>
+                    <p className="security-description enabled">{user.twoFactorEnabled ? 'Enabled' : 'Disabled'}</p>
                   </div>
                 </div>
                 <label className="toggle-switch">
                   <input 
                     type="checkbox" 
                     checked={user.twoFactorEnabled}
-                    onChange={() => setUser({...user, twoFactorEnabled: !user.twoFactorEnabled})}
+                    onChange={handleToggleTwoFactor}
                   />
                   <span className="toggle-slider"></span>
                 </label>
@@ -545,7 +635,7 @@ const Profile = () => {
                   <span className="material-symbols-outlined">devices</span>
                   <div>
                     <p className="security-label">Active Sessions</p>
-                    <p className="security-description">{user.activeSessions} devices currently logged in</p>
+                    <p className="security-description">{user.activeSessions} device{user.activeSessions !== 1 ? 's' : ''} currently logged in</p>
                   </div>
                 </div>
                 <span className="material-symbols-outlined">chevron_right</span>

@@ -494,3 +494,49 @@ input:checked + .toggle-slider:before {
     left: 16px;
   }
 }
+
+/* Add to Settings.css */
+.settings-page {
+  background-color: var(--bg-secondary, #fdf7ff);
+}
+
+.settings-card {
+  background-color: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, rgba(202, 196, 212, 0.5));
+}
+
+.settings-card h2 {
+  color: var(--text-primary, #1d1a21);
+}
+
+.settings-card p {
+  color: var(--text-secondary, #494552);
+}
+
+.setting-item label {
+  color: var(--text-primary, #1d1a21);
+}
+
+.setting-select {
+  background-color: var(--card-bg, white);
+  color: var(--text-primary, #1d1a21);
+  border-color: var(--border-color, #cac4d4);
+}
+
+.toggle-switch .toggle-slider {
+  background-color: var(--border-color, #cac4d4);
+}
+
+[data-theme="dark"] .settings-card {
+  background-color: var(--card-bg, #1f1f3a);
+}
+
+[data-theme="dark"] .settings-card h2 {
+  color: var(--text-primary, #e0e0e0);
+}
+
+[data-theme="dark"] .setting-select {
+  background-color: var(--bg-tertiary, #2a2a4a);
+  color: var(--text-primary, #e0e0e0);
+  border-color: var(--border-color, #2d2d44);
+}
