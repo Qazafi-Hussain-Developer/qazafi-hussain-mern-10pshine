@@ -56,20 +56,23 @@ const Dashboard = () => {
     trash: 0
   })
 
-  // New filter states
   const [filterCategory, setFilterCategory] = useState('all')
   const [filterDate, setFilterDate] = useState('all')
   const [showFilterBar, setShowFilterBar] = useState(false)
 
-  // Refs for debounce and abort controller
   const debounceTimeoutRef = useRef(null)
   const abortControllerRef = useRef(null)
   const isMountedRef = useRef(true)
 
   const currentHour = new Date().getHours()
-  const greeting = currentHour < 12 ? 'Good morning' : currentHour < 18 ? 'Good afternoon' : 'Good evening'
+  let greeting = 'Good evening'
+  if (currentHour < 12) {
+    greeting = 'Good morning'
+  } else if (currentHour < 18) {
+    greeting = 'Good afternoon'
+  }
 
-  // Determine filter type from URL path (including notebooks, folders, tags)
+  // Determine filter type from URL path
   useEffect(() => {
     const path = location.pathname
     
@@ -91,7 +94,7 @@ const Dashboard = () => {
   }, [location.pathname])
 
   // Build API URL with filters
-  const buildApiUrl = () => {
+  const buildApiUrl = useCallback(() => {
     let url = 'http://localhost:5000/api/notes'
     const params = new URLSearchParams()
     
@@ -101,7 +104,6 @@ const Dashboard = () => {
       params.append('is_archived', 'true')
     }
     
-    // Add sort parameter
     if (sortBy === 'pinned') {
       params.append('sort_by', 'pinned')
     } else if (sortBy === 'title') {
@@ -114,76 +116,98 @@ const Dashboard = () => {
       url += `?${params.toString()}`
     }
     return url
-  }
+  }, [activeFilter, sortBy])
 
   // Sort notes locally
-  const getSortedNotes = (notesToSort) => {
-    let sorted = [...notesToSort]
+  const getSortedNotes = useCallback((notesToSort) => {
+    const sorted = [...notesToSort]
     
-    if (sortBy === 'pinned') {
-      sorted.sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0))
-    } else if (sortBy === 'updated') {
-      sorted.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
-    } else if (sortBy === 'created') {
-      sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    } else if (sortBy === 'title') {
-      sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+    switch (sortBy) {
+      case 'pinned':
+        sorted.sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0))
+        break
+      case 'updated':
+        sorted.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+        break
+      case 'created':
+        sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        break
+      case 'title':
+        sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+        break
+      default:
+        sorted.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
     }
     
     return sorted
-  }
+  }, [sortBy])
 
   // Apply multiple filters (category + date)
-  const applyMultipleFilters = (notesToFilter) => {
+  const applyMultipleFilters = useCallback((notesToFilter) => {
     let filtered = [...notesToFilter]
     
-    // Category filter
     if (filterCategory !== 'all') {
       filtered = filtered.filter(note => note.category === filterCategory)
     }
     
-    // Date filter
     const now = new Date()
     const today = new Date().toISOString().split('T')[0]
-    const weekAgo = new Date(now.setDate(now.getDate() - 7)).toISOString().split('T')[0]
-    const monthAgo = new Date(now.setMonth(now.getMonth() - 1)).toISOString().split('T')[0]
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
     
-    if (filterDate === 'today') {
-      filtered = filtered.filter(note => {
-        const noteDate = new Date(note.created_at).toISOString().split('T')[0]
-        return noteDate === today
-      })
-    } else if (filterDate === 'week') {
-      filtered = filtered.filter(note => {
-        const noteDate = new Date(note.created_at).toISOString().split('T')[0]
-        return noteDate >= weekAgo
-      })
-    } else if (filterDate === 'month') {
-      filtered = filtered.filter(note => {
-        const noteDate = new Date(note.created_at).toISOString().split('T')[0]
-        return noteDate >= monthAgo
-      })
+    switch (filterDate) {
+      case 'today':
+        filtered = filtered.filter(note => {
+          const noteDate = new Date(note.created_at).toISOString().split('T')[0]
+          return noteDate === today
+        })
+        break
+      case 'week':
+        filtered = filtered.filter(note => {
+          const noteDate = new Date(note.created_at).toISOString().split('T')[0]
+          return noteDate >= weekAgo
+        })
+        break
+      case 'month':
+        filtered = filtered.filter(note => {
+          const noteDate = new Date(note.created_at).toISOString().split('T')[0]
+          return noteDate >= monthAgo
+        })
+        break
+      default:
+        // No date filter applied
+        break
     }
     
     return filtered
-  }
+  }, [filterCategory, filterDate])
 
   // Filter notes by notebook/folder/tag
-  const filterByPath = (fetchedNotes) => {
+  const filterByPath = useCallback((fetchedNotes) => {
     const path = location.pathname
     
     if (path.startsWith('/notebook/')) {
       const notebookName = decodeURIComponent(path.split('/notebook/')[1])
       return fetchedNotes.filter(note => note.category === notebookName)
-    } else if (path.startsWith('/folder/')) {
+    }
+    if (path.startsWith('/folder/')) {
       const folderName = decodeURIComponent(path.split('/folder/')[1])
       return fetchedNotes.filter(note => note.category === folderName)
-    } else if (path.startsWith('/tag/')) {
+    }
+    if (path.startsWith('/tag/')) {
       const tagName = decodeURIComponent(path.split('/tag/')[1])
-      return fetchedNotes.filter(note => note.tags && note.tags.includes(tagName))
+      return fetchedNotes.filter(note => note.tags?.includes(tagName))
     }
     
     return fetchedNotes
+  }, [location.pathname])
+
+  // Helper function for date filter label
+  const getDateFilterLabel = () => {
+    if (filterDate === 'today') return 'Today'
+    if (filterDate === 'week') return 'This Week'
+    if (filterDate === 'month') return 'This Month'
+    return 'All Time'
   }
 
   // Fetch notes from backend
@@ -219,20 +243,13 @@ const Dashboard = () => {
       
       if (isMountedRef.current && response.ok && data.success) {
         let fetchedNotes = data.notes || []
-        
-        // Apply path-based filtering
         fetchedNotes = filterByPath(fetchedNotes)
-        
-        // Apply multiple filters (category + date)
         fetchedNotes = applyMultipleFilters(fetchedNotes)
-        
-        // Apply sorting
         fetchedNotes = getSortedNotes(fetchedNotes)
         
         setNotes(fetchedNotes)
         setFilteredNotes(fetchedNotes)
         
-        // Calculate stats
         const today = new Date().toISOString().split('T')[0]
         const todayNotes = fetchedNotes.filter(note => {
           const noteDate = new Date(note.created_at).toISOString().split('T')[0]
@@ -242,20 +259,19 @@ const Dashboard = () => {
         const favoriteCount = fetchedNotes.filter(note => note.is_favorite === true).length
         const pinnedCount = fetchedNotes.filter(note => note.is_pinned === true).length
         
-        setStats({
+        setStats(prev => ({
+          ...prev,
           total: fetchedNotes.length,
           today: todayNotes,
-          streak: stats.streak,
           favorites: favoriteCount,
           pinned: pinnedCount,
-          trash: 0
-        })
+        }))
       } else if (isMountedRef.current && !response.ok) {
         setError(data.message || 'Failed to fetch notes')
       }
-    } catch (error) {
-      if (error.name !== 'AbortError' && isMountedRef.current) {
-        console.error('Error fetching notes:', error)
+    } catch (err) {
+      if (err.name !== 'AbortError' && isMountedRef.current) {
+        console.error('Error fetching notes:', err)
         setError('Unable to connect to server. Please make sure the backend is running.')
       }
     } finally {
@@ -263,7 +279,7 @@ const Dashboard = () => {
         setLoading(false)
       }
     }
-  }, [token, activeFilter, sortBy, location.pathname, filterCategory, filterDate, stats.streak])
+  }, [token, buildApiUrl, filterByPath, applyMultipleFilters, getSortedNotes])
 
   // Debounced fetch
   useEffect(() => {
@@ -282,7 +298,7 @@ const Dashboard = () => {
         clearTimeout(debounceTimeoutRef.current)
       }
     }
-  }, [token, activeFilter, sortBy, location.pathname, filterCategory, filterDate, fetchNotes])
+  }, [token, fetchNotes])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -299,21 +315,23 @@ const Dashboard = () => {
   }, [])
 
   const handleSearch = (query) => {
-    if (!query || !query.trim()) {
-      setFilteredNotes(notes)
-    } else {
-      const filtered = notes.filter(note => 
-        note.title?.toLowerCase().includes(query.toLowerCase()) ||
-        note.content?.toLowerCase().includes(query.toLowerCase()) ||
-        (note.tags && note.tags.some(tag => tag.toLowerCase().includes(query.toLowerCase()))) ||
-        (note.category && note.category.toLowerCase().includes(query.toLowerCase()))
-      )
-      setFilteredNotes(getSortedNotes(filtered))
-    }
+  const trimmedQuery = query?.trim()
+  if (trimmedQuery === undefined || trimmedQuery === '') {
+    setFilteredNotes(notes)
+  } else {
+    const filtered = notes.filter(note => 
+      note.title?.toLowerCase().includes(trimmedQuery.toLowerCase()) ||
+      note.content?.toLowerCase().includes(trimmedQuery.toLowerCase()) ||
+      note.tags?.some(tag => tag.toLowerCase().includes(trimmedQuery.toLowerCase())) ||
+      note.category?.toLowerCase().includes(trimmedQuery.toLowerCase())
+    )
+    setFilteredNotes(getSortedNotes(filtered))
   }
+}
 
   const handleDeleteNote = async (noteId) => {
-    if (!window.confirm('Are you sure you want to delete this note?')) {
+    const isConfirmed = globalThis.confirm('Are you sure you want to delete this note?')
+    if (!isConfirmed) {
       return
     }
     
@@ -332,16 +350,16 @@ const Dashboard = () => {
         const updatedNotes = notes.filter(note => note.id !== noteId && note._id !== noteId)
         setNotes(updatedNotes)
         setFilteredNotes(getSortedNotes(updatedNotes))
-        setStats({
-          ...stats,
+        setStats(prev => ({
+          ...prev,
           total: updatedNotes.length
-        })
+        }))
       } else {
-        alert(data.message || 'Failed to delete note')
+        globalThis.alert(data.message || 'Failed to delete note')
       }
-    } catch (error) {
-      console.error('Error deleting note:', error)
-      alert('Unable to delete note. Please try again.')
+    } catch (err) {
+      console.error('Error deleting note:', err)
+      globalThis.alert('Unable to delete note. Please try again.')
     }
   }
 
@@ -362,8 +380,8 @@ const Dashboard = () => {
       } else {
         console.error('Failed to toggle favorite:', data.message)
       }
-    } catch (error) {
-      console.error('Error toggling favorite:', error)
+    } catch (err) {
+      console.error('Error toggling favorite:', err)
     }
   }
 
@@ -384,8 +402,8 @@ const Dashboard = () => {
       } else {
         console.error('Failed to toggle archive:', data.message)
       }
-    } catch (error) {
-      console.error('Error toggling archive:', error)
+    } catch (err) {
+      console.error('Error toggling archive:', err)
     }
   }
 
@@ -406,8 +424,8 @@ const Dashboard = () => {
       } else {
         console.error('Failed to toggle pin:', data.message)
       }
-    } catch (error) {
-      console.error('Error toggling pin:', error)
+    } catch (err) {
+      console.error('Error toggling pin:', err)
     }
   }
 
@@ -421,35 +439,18 @@ const Dashboard = () => {
     setShowFilterBar(false)
   }
 
-  const getPageTitle = () => {
-    const path = location.pathname
-    if (path === '/favorites') return 'Your Favorite Notes'
-    if (path === '/archive') return 'Archived Notes'
-    if (path === '/categories') return 'Categories'
-    if (path.startsWith('/notebook/')) {
-      const name = decodeURIComponent(path.split('/notebook/')[1])
-      return `${name} Notebook`
-    }
-    if (path.startsWith('/folder/')) {
-      const name = decodeURIComponent(path.split('/folder/')[1])
-      return `${name} Folder`
-    }
-    if (path.startsWith('/tag/')) {
-      const name = decodeURIComponent(path.split('/tag/')[1])
-      return `#${name}`
-    }
-    return 'Dashboard'
-  }
-
   const getPageSubtitle = () => {
     const path = location.pathname
-    if (path === '/favorites') return `You have ${stats.total} favorite note${stats.total !== 1 ? 's' : ''} saved`
-    if (path === '/archive') return `You have ${stats.total} archived note${stats.total !== 1 ? 's' : ''}`
+    const hasMultipleNotes = stats.total !== 1
+    const suffix = hasMultipleNotes ? 's' : ''
+    
+    if (path === '/favorites') return `You have ${stats.total} favorite note${suffix} saved`
+    if (path === '/archive') return `You have ${stats.total} archived note${suffix}`
     if (path === '/categories') return 'Organize your notes by category'
     if (path.startsWith('/notebook/') || path.startsWith('/folder/') || path.startsWith('/tag/')) {
-      return `${stats.total} note${stats.total !== 1 ? 's' : ''} in this collection`
+      return `${stats.total} note${suffix} in this collection`
     }
-    return `You have ${stats.total} note${stats.total !== 1 ? 's' : ''} saved in your workspace.`
+    return `You have ${stats.total} note${suffix} saved in your workspace.`
   }
 
   // Group notes by category for Categories view
@@ -480,6 +481,42 @@ const Dashboard = () => {
       createdAt: note.created_at,
       updatedAt: note.updated_at
     }))
+  }
+
+  const renderNoteContent = () => {
+    if (loading) {
+      return (
+        <div className="loading-notes">
+          <div className="spinner"></div>
+          <p>Loading your notes...</p>
+        </div>
+      )
+    }
+    
+    if (viewMode === 'grid') {
+      return (
+        <NoteGrid 
+          notes={formatNotesForGrid()} 
+          onDelete={handleDeleteNote}
+          onEdit={(note) => navigate(`/editor/${note.id}`)}
+          onFavorite={handleToggleFavorite}
+          onArchive={handleToggleArchive}
+          onPin={handleTogglePin}
+          onCreateNew={() => navigate('/editor/new')}
+        />
+      )
+    }
+    
+    return (
+      <NoteList 
+        notes={formatNotesForGrid()} 
+        onDelete={handleDeleteNote}
+        onEdit={(note) => navigate(`/editor/${note.id}`)}
+        onFavorite={handleToggleFavorite}
+        onArchive={handleToggleArchive}
+        onPin={handleTogglePin}
+      />
+    )
   }
 
   return (
@@ -539,7 +576,7 @@ const Dashboard = () => {
             </div>
           </section>
 
-          {/* Sort Controls - Filter on Right Side */}
+          {/* Sort Controls */}
           <div className="sort-controls">
             <div className="sort-left">
               <div className="view-toggle">
@@ -547,6 +584,7 @@ const Dashboard = () => {
                   className={`view-btn ${viewMode === 'grid' ? 'active' : ''}`}
                   onClick={() => setViewMode('grid')}
                   title="Grid View"
+                  type="button"
                 >
                   <span className="material-symbols-outlined">grid_view</span>
                 </button>
@@ -554,6 +592,7 @@ const Dashboard = () => {
                   className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
                   onClick={() => setViewMode('list')}
                   title="List View"
+                  type="button"
                 >
                   <span className="material-symbols-outlined">view_list</span>
                 </button>
@@ -563,6 +602,7 @@ const Dashboard = () => {
                 value={sortBy} 
                 onChange={(e) => setSortBy(e.target.value)}
                 className="sort-select"
+                aria-label="Sort notes by"
               >
                 <option value="pinned">📌 Pinned first</option>
                 <option value="updated">🕐 Recently updated</option>
@@ -571,11 +611,12 @@ const Dashboard = () => {
               </select>
             </div>
             
-            {/* Filter Button - Now on the Right Side */}
+            {/* Filter Button */}
             <div className="filter-right">
               <button 
                 className={`filter-btn ${showFilterBar ? 'active' : ''}`}
                 onClick={() => setShowFilterBar(!showFilterBar)}
+                type="button"
               >
                 <span className="material-symbols-outlined">filter_alt</span>
                 Filter
@@ -588,11 +629,12 @@ const Dashboard = () => {
                 <div className="filter-dropdown">
                   {/* Category Filter */}
                   <div className="filter-group">
-                    <label>Category</label>
+                    <label htmlFor="categoryFilter">Category</label>
                     <div className="filter-options">
                       <button 
                         className={`filter-chip ${filterCategory === 'all' ? 'active' : ''}`}
                         onClick={() => setFilterCategory('all')}
+                        type="button"
                       >
                         All
                       </button>
@@ -601,6 +643,7 @@ const Dashboard = () => {
                           key={cat}
                           className={`filter-chip ${filterCategory === cat ? 'active' : ''}`}
                           onClick={() => setFilterCategory(cat)}
+                          type="button"
                         >
                           {cat}
                         </button>
@@ -610,29 +653,33 @@ const Dashboard = () => {
                   
                   {/* Date Filter */}
                   <div className="filter-group">
-                    <label>Date</label>
+                    <label htmlFor="dateFilter">Date</label>
                     <div className="filter-options">
                       <button 
                         className={`filter-chip ${filterDate === 'all' ? 'active' : ''}`}
                         onClick={() => setFilterDate('all')}
+                        type="button"
                       >
                         All Time
                       </button>
                       <button 
                         className={`filter-chip ${filterDate === 'today' ? 'active' : ''}`}
                         onClick={() => setFilterDate('today')}
+                        type="button"
                       >
                         Today
                       </button>
                       <button 
                         className={`filter-chip ${filterDate === 'week' ? 'active' : ''}`}
                         onClick={() => setFilterDate('week')}
+                        type="button"
                       >
                         This Week
                       </button>
                       <button 
                         className={`filter-chip ${filterDate === 'month' ? 'active' : ''}`}
                         onClick={() => setFilterDate('month')}
+                        type="button"
                       >
                         This Month
                       </button>
@@ -644,16 +691,16 @@ const Dashboard = () => {
                     <div className="active-filters">
                       <span>Active filters:</span>
                       {filterCategory !== 'all' && (
-                        <button className="active-filter-chip" onClick={() => setFilterCategory('all')}>
+                        <button className="active-filter-chip" onClick={() => setFilterCategory('all')} type="button">
                           {filterCategory} ✕
                         </button>
                       )}
                       {filterDate !== 'all' && (
-                        <button className="active-filter-chip" onClick={() => setFilterDate('all')}>
-                          {filterDate === 'today' ? 'Today' : filterDate === 'week' ? 'This Week' : 'This Month'} ✕
+                        <button className="active-filter-chip" onClick={() => setFilterDate('all')} type="button">
+                          {getDateFilterLabel()} ✕
                         </button>
                       )}
-                      <button className="clear-all-filters" onClick={clearAllFilters}>
+                      <button className="clear-all-filters" onClick={clearAllFilters} type="button">
                         Clear all
                       </button>
                     </div>
@@ -668,11 +715,11 @@ const Dashboard = () => {
             <div className="error-banner">
               <span className="material-symbols-outlined">error_outline</span>
               <p>{error}</p>
-              <button onClick={handleRefresh} className="retry-btn">Retry</button>
+              <button onClick={handleRefresh} className="retry-btn" type="button">Retry</button>
             </div>
           )}
 
-          {/* Categories View with Icons and Colors */}
+          {/* Categories View */}
           {activeFilter === 'categories' && !loading && (
             <div className="categories-view">
               {Object.entries(getNotesByCategory()).map(([category, categoryNotes]) => (
@@ -688,7 +735,7 @@ const Dashboard = () => {
                     <span 
                       className="category-count" 
                       style={{ 
-                        background: (categoryColors[category] || '#a78bfa') + '20', 
+                        background: `${categoryColors[category] || '#a78bfa'}20`, 
                         color: categoryColors[category] || '#a78bfa' 
                       }}
                     >
@@ -750,7 +797,7 @@ const Dashboard = () => {
                   </div>
                   <h3>No categories yet</h3>
                   <p>Create your first note to get started with categories.</p>
-                  <button onClick={() => navigate('/editor/new')} className="create-first-btn">
+                  <button onClick={() => navigate('/editor/new')} className="create-first-btn" type="button">
                     Create New Note
                   </button>
                 </div>
@@ -758,48 +805,22 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* Notes Grid/List (for All, Favorites, Archive, Notebooks, Folders, Tags) */}
-          {activeFilter !== 'categories' && (
-            loading ? (
-              <div className="loading-notes">
-                <div className="spinner"></div>
-                <p>Loading your notes...</p>
-              </div>
-            ) : viewMode === 'grid' ? (
-              <NoteGrid 
-                notes={formatNotesForGrid()} 
-                onDelete={handleDeleteNote}
-                onEdit={(note) => navigate(`/editor/${note.id}`)}
-                onFavorite={handleToggleFavorite}
-                onArchive={handleToggleArchive}
-                onPin={handleTogglePin}
-                onCreateNew={() => navigate('/editor/new')}
-              />
-            ) : (
-              <NoteList 
-                notes={formatNotesForGrid()} 
-                onDelete={handleDeleteNote}
-                onEdit={(note) => navigate(`/editor/${note.id}`)}
-                onFavorite={handleToggleFavorite}
-                onArchive={handleToggleArchive}
-                onPin={handleTogglePin}
-              />
-            )
-          )}
+          {/* Notes Grid/List */}
+          {activeFilter !== 'categories' && renderNoteContent()}
 
-          {/* Recent Activity Section - Hide for Favorites/Archive/Categories */}
+          {/* Recent Activity Section */}
           {activeFilter === 'all' && (
             <section className="recent-activity">
               <div className="activity-card">
                 <h3>Recent Activity</h3>
                 <div className="activity-list">
-                  {notes.slice(0, 3).map((note, index) => (
-                    <div key={index} className="activity-item">
+                  {notes.slice(0, 3).map((note, idx) => (
+                    <div key={note.id || idx} className="activity-item">
                       <div className="activity-icon secondary">
                         <span className="material-symbols-outlined">edit_note</span>
                       </div>
                       <div className="activity-details">
-                        <p className="activity-title">Updated "{note.title || 'Untitled'}"</p>
+                        <p className="activity-title">Updated &quot;{note.title || 'Untitled'}&quot;</p>
                         <p className="activity-time">
                           {note.updated_at ? new Date(note.updated_at).toLocaleDateString() : 'Recently'}
                         </p>

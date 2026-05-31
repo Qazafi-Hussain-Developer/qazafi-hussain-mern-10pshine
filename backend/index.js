@@ -67,11 +67,14 @@ app.use('*', (req, res) => {
 // Error handler
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-  logger.info(`🚀 Server running on port ${PORT}`);
-  logger.info(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`📍 API URL: http://localhost:${PORT}`);
-});
+// Only start server if not in test mode
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    logger.info(`🚀 Server running on port ${PORT}`);
+    logger.info(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    logger.info(`📍 API URL: http://localhost:${PORT}`);
+  });
+}
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
@@ -82,3 +85,6 @@ process.on('SIGTERM', () => {
   });
 });
 //Work Accomplished: Set up Express server with security middleware, rate limiting, request logging, and error handling. Initialized database on startup and added health check endpoint.
+
+// Export app for testing
+export default app;

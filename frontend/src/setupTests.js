@@ -1,4 +1,4 @@
-// src/setupTests.js
+// frontend/src/setupTests.js
 import { jest, beforeAll, afterAll } from '@jest/globals';
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
@@ -44,15 +44,15 @@ const originalLog = console.log;
 
 beforeAll(() => {
   console.error = (...args) => {
-    // Skip specific React warnings
     if (args.length > 0 && typeof args[0] === 'string') {
       if (
-        args[0].includes('Warning: ReactDOM.render is no longer supported') ||
-        args[0].includes('Warning: useLayoutEffect does nothing on the server') ||
+        args[0].includes('Warning: ReactDOM.render') ||
+        args[0].includes('Warning: useLayoutEffect') ||
         args[0].includes('React.jsx: type is invalid') ||
         args[0].includes('Signup error:') ||
         args[0].includes('Login error:') ||
-        args[0].includes('Network error')
+        args[0].includes('Network error') ||
+        args[0].includes('defaultProps')
       ) {
         return;
       }
@@ -62,7 +62,7 @@ beforeAll(() => {
   
   console.warn = (...args) => {
     if (args.length > 0 && typeof args[0] === 'string') {
-      if (args[0].includes('ReactDOM.render')) {
+      if (args[0].includes('defaultProps')) {
         return;
       }
     }

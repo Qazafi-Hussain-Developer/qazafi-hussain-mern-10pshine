@@ -31,7 +31,14 @@ export const AuthProvider = ({ children }) => {
         if (storedToken && storedUser && rememberMe) {
           setAuthToken(storedToken)
           setToken(storedToken)
-          setUser(JSON.parse(storedUser))
+          try {
+  setUser(JSON.parse(storedUser))
+} catch (e) {
+  console.error('Error parsing user data:', e)
+  localStorage.removeItem('user')
+  sessionStorage.removeItem('user')
+  setUser(null)
+}
           
           // Verify token is still valid
           try {
