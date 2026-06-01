@@ -41,7 +41,13 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       })
-      return response.json()
+      const data = await response.json()
+      // Store token if login successful
+      if (data.token) {
+        localStorage.setItem('token', data.token)
+        localStorage.setItem('user', JSON.stringify(data.user))
+      }
+      return data
     },
 
     // ✅ Existing signup (kept exactly the same)
@@ -51,7 +57,13 @@ export const api = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password })
       })
-      return response.json()
+      const data = await response.json()
+      // Store token if signup successful
+      if (data.token) {
+        localStorage.setItem('token', data.token)
+        localStorage.setItem('user', JSON.stringify(data.user))
+      }
+      return data
     },
 
     // ✅ Existing logout (kept exactly the same)
@@ -249,11 +261,58 @@ export const api = {
       const token = getAuthToken()
       const response = await fetch(`${API_BASE_URL}/auth/profile`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(profileData)
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      return response.json()
+    },
+
+    togglePin: async (id) => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/notes/${id}/pin`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      return response.json()
+    },
+
+    getTrash: async () => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/notes/trash`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      return response.json()
+    },
+
+    restore: async (id) => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/notes/${id}/restore`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      return response.json()
+    },
+
+    permanentDelete: async (id) => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/notes/${id}/permanent`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      return response.json()
+    },
+
+    getStats: async () => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/notes/stats`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      return response.json()
+    },
+
+    getActivityLogs: async () => {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/notes/activity-logs`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       })
       return response.json()
     },

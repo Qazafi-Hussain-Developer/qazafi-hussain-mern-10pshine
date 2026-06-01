@@ -1,5 +1,6 @@
 {
   "name": "frontend",
+  "private": true,
   "version": "1.0.0",
   "type": "module",
   "scripts": {
@@ -10,15 +11,15 @@
     "lint:check": "eslint .",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
-    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage --coverageReporters=lcov text"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.3.0",
-    "axios": "^1.16.1",
-    "lucide-react": "0.469.0",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "react-icons": "5.5.0",
+    "axios": "^1.7.9",
+    "lucide-react": "^0.469.0",
+    "prop-types": "^15.8.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-icons": "^5.5.0",
     "react-quill": "^2.0.0",
     "react-router-dom": "^7.15.1"
   },
@@ -47,34 +48,6 @@
     "jest-environment-jsdom": "^29.7.0",
     "postcss": "^8.5.15",
     "tailwindcss": "^4.3.0",
-    "util": "^0.12.5",
-    "vite": "^6.4.2"
-  },
-  "jest": {
-    "testEnvironment": "jsdom",
-    "setupFilesAfterEnv": [
-      "<rootDir>/src/setupTests.js"
-    ],
-    "moduleNameMapper": {
-      "\\.(css|less|scss|sass)$": "identity-obj-proxy",
-      "\\.(jpg|jpeg|png|gif|webp|svg)$": "<rootDir>/__mocks__/fileMock.js",
-      "^@/(.*)$": "<rootDir>/src/$1"
-    },
-    "transform": {
-      "^.+\\.(js|jsx)$": "babel-jest"
-    },
-    "transformIgnorePatterns": [
-      "node_modules/(?!(lucide-react|react-quill)/)"
-    ],
-    "moduleFileExtensions": [
-      "js",
-      "jsx",
-      "json",
-      "node"
-    ],
-    "testMatch": [
-      "**/__tests__/**/*.js?(x)",
-      "**/?(*.)+(spec|test).js?(x)"
-    ]
+    "vite": "^6.1.0"
   }
 }
