@@ -213,4 +213,4 @@ const NoteCard = ({ note, onDelete, onEdit, onFavorite, onArchive, onPin, onRest
   )
 }
 
-export default NoteCard
+export default NoteCard;

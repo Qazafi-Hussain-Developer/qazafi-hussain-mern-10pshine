@@ -1,0 +1,35 @@
+{
+  "name": "qazafi-hussain-mern-10pshine",
+  "version": "1.0.0",
+  "description": "MERN Notes App for 10Pearls Shine Internship - Frontend: React, Backend: Node.js with Express",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"No tests yet\"",
+    "lint": "eslint .",
+    "sonar": "sonar-scanner"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Qazafi-Hussain-Developer/qazafi-hussain-mern-10pshine.git"
+  },
+  "keywords": [
+    "mern",
+    "notes-app",
+    "10pearls",
+    "react",
+    "nodejs"
+  ],
+  "author": "Qazafi Hussain",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Qazafi-Hussain-Developer/qazafi-hussain-mern-10pshine/issues"
+  },
+  "homepage": "https://github.com/Qazafi-Hussain-Developer/qazafi-hussain-mern-10pshine#readme",
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^17.6.0"
+  }
+}
