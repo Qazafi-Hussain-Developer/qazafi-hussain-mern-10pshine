@@ -84,7 +84,6 @@ process.on('SIGTERM', () => {
     process.exit(0);
   });
 });
-//Work Accomplished: Set up Express server with security middleware, rate limiting, request logging, and error handling. Initialized database on startup and added health check endpoint.
 
 // Export app for testing
 export default app;
