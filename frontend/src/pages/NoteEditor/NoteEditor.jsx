@@ -2,423 +2,853 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Sidebar from '../../components/Layout/Sidebar'
 import { useAuth } from '../../context/AuthContext'
+import './NoteEditor.css'
 
-/* ─── Inline CSS ─── */
+/* ─── Inline styles for editor-specific CSS ─────────────────── */
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Serif+Display&display=swap');
 
-  *, *::before, *::after { box-sizing: border-box; }
+  /* ── Toolbar ────────────────────────────────────────────── */
+  .ne-toolbar {
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(196,179,232,0.25);
+    padding: 5px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    align-items: center;
+    position: sticky;
+    top: 58px;
+    z-index: 40;
+    box-shadow: 0 1px 0 rgba(103,75,181,0.04);
+  }
 
-  .ne-root { display:flex; min-height:100vh; background:#f7f4f9; direction:ltr; }
-  .ne-main { flex:1; margin-left:256px; display:flex; flex-direction:column; height:100vh; overflow:hidden; }
+  .ne-tb-group {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    padding: 0 5px;
+    position: relative;
+  }
 
-  /* ── Header ── */
+  .ne-tb-group::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 4px;
+    bottom: 4px;
+    width: 1px;
+    background: #e8e0f4;
+  }
+
+  .ne-tb-group:last-child::after { display: none; }
+
+  .ne-tb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: none;
+    background: transparent;
+    border-radius: 7px;
+    cursor: pointer;
+    color: #6b5f82;
+    transition: background 0.12s, color 0.12s, transform 0.08s;
+    flex-shrink: 0;
+  }
+
+  .ne-tb-btn .ms {
+    font-size: 18px;
+    font-variation-settings: 'FILL' 0, 'wght' 350, 'GRAD' 0, 'opsz' 20;
+    line-height: 1;
+  }
+
+  .ne-tb-btn:hover {
+    background: #f0e8fb;
+    color: #5a3da0;
+  }
+
+  .ne-tb-btn.active {
+    background: #ede5f8;
+    color: #5a3da0;
+    box-shadow: inset 0 0 0 1px rgba(107,71,184,0.2);
+  }
+
+  .ne-tb-btn.active .ms {
+    font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+  }
+
+  .ne-tb-btn:active { transform: scale(0.92); }
+
+  /* Heading buttons */
+  .ne-tb-heading-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 30px;
+    border: none;
+    background: transparent;
+    border-radius: 7px;
+    cursor: pointer;
+    color: #6b5f82;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 0 7px;
+    font-family: 'DM Serif Display', serif;
+    letter-spacing: 0.02em;
+    transition: background 0.12s, color 0.12s;
+  }
+
+  .ne-tb-heading-btn:hover {
+    background: #f0e8fb;
+    color: #5a3da0;
+  }
+
+  .ne-tb-heading-btn.active {
+    background: #ede5f8;
+    color: #5a3da0;
+    box-shadow: inset 0 0 0 1px rgba(107,71,184,0.2);
+  }
+
+  /* Toolbar selects */
+  .ne-tb-select {
+    height: 30px;
+    padding: 0 22px 0 8px;
+    border: 1px solid #e8e0f4;
+    border-radius: 7px;
+    font-size: 12px;
+    color: #3d2f66;
+    background: #faf8fd url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%23a78bfa' stroke-width='1.3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 7px center;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.14s, box-shadow 0.14s;
+  }
+
+  .ne-tb-select:hover { border-color: #c4b3e8; background-color: #f5f0fd; }
+  .ne-tb-select:focus { border-color: #a78bfa; box-shadow: 0 0 0 2.5px rgba(167,139,250,0.15); }
+  .ne-tb-select-font { width: 136px; }
+  .ne-tb-select-size { width: 58px; text-align: center; }
+
+  /* Color picker buttons */
+  .ne-color-wrap {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .ne-color-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    width: 32px;
+    height: 30px;
+    border: none;
+    background: transparent;
+    border-radius: 7px;
+    cursor: pointer;
+    padding: 4px 6px;
+    transition: background 0.12s;
+  }
+
+  .ne-color-btn:hover { background: #f0e8fb; }
+  .ne-color-btn .ms { font-size: 16px; color: #6b5f82; }
+  .ne-color-bar { width: 18px; height: 3.5px; border-radius: 2px; flex-shrink: 0; }
+
+  /* Color dropdown */
+  .ne-color-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    border: 1px solid #e8e0f4;
+    border-radius: 15px;
+    box-shadow: 0 8px 28px rgba(103,75,181,0.15), 0 2px 8px rgba(0,0,0,0.06);
+    z-index: 500;
+    padding: 12px 14px;
+    min-width: 220px;
+    animation: colorDropIn 0.15s ease;
+  }
+
+  @keyframes colorDropIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(-4px) scale(0.98); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  }
+
+  .ne-color-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    color: #b0a0cc;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 9px;
+  }
+
+  .ne-color-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  .ne-swatch {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.12s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.09);
+  }
+
+  .ne-swatch:hover { transform: scale(1.15); box-shadow: 0 2px 8px rgba(107,71,184,0.22); }
+  .ne-swatch.sel {
+    border-color: #7c3aed;
+    transform: scale(1.08);
+    box-shadow: 0 0 0 3px rgba(124,58,237,0.2);
+  }
+
+  .ne-custom-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-top: 10px;
+    margin-top: 6px;
+    border-top: 1px solid #f0ebf8;
+    font-size: 12px;
+    color: #9b8bbf;
+    font-weight: 500;
+  }
+
+  .ne-custom-row input[type="color"] {
+    width: 36px;
+    height: 32px;
+    border: 1px solid #ddd6f0;
+    border-radius: 8px;
+    padding: 2px 3px;
+    cursor: pointer;
+    background: #fff;
+  }
+
+  /* Image wrapper & controls */
+  .ne-img-wrapper {
+    display: inline-block;
+    position: relative;
+    line-height: 0;
+    border-radius: 10px;
+    transition: outline 0.12s;
+  }
+
+  .ne-img-wrapper.selected {
+    outline: 2.5px solid #7c3aed;
+    outline-offset: 3px;
+  }
+
+  .ne-img-controls {
+    position: absolute;
+    top: -38px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(26, 16, 48, 0.92);
+    border-radius: 10px;
+    padding: 4px 8px;
+    display: none;
+    align-items: center;
+    gap: 2px;
+    white-space: nowrap;
+    z-index: 20;
+    backdrop-filter: blur(4px);
+  }
+
+  .ne-img-wrapper.selected .ne-img-controls { display: flex; }
+
+  .ne-img-align-btn {
+    background: transparent;
+    border: none;
+    color: #c4b3e8;
+    cursor: pointer;
+    padding: 3px 7px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .ne-img-align-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+  .ne-img-align-btn .ms { font-size: 15px; }
+
+  .ne-img-controls-sep { width: 1px; height: 16px; background: rgba(255,255,255,0.2); margin: 0 3px; }
+  .ne-img-size-label { font-size: 10.5px; color: #c4b3e8; font-family: monospace; padding: 0 4px; }
+
+  .ne-img-del-btn {
+    background: transparent;
+    border: none;
+    color: #f87171;
+    cursor: pointer;
+    padding: 3px 7px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    transition: background 0.1s;
+  }
+
+  .ne-img-del-btn:hover { background: rgba(220,38,38,0.25); }
+  .ne-img-del-btn .ms { font-size: 15px; }
+
+  .ne-resize-handle {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 12px;
+    height: 12px;
+    background: #7c3aed;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    cursor: se-resize;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+
+  /* Note color chips row */
+  .ne-note-colors {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 28px;
+    border-top: 1px solid #f5f0fb;
+    border-bottom: 1px solid #f5f0fb;
+    flex-wrap: wrap;
+    direction: ltr;
+  }
+
+  .ne-note-colors-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #c4b3d8;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-right: 6px;
+  }
+
+  .ne-note-chip {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    transition: transform 0.13s, box-shadow 0.13s;
+  }
+
+  .ne-note-chip:hover { transform: scale(1.2); box-shadow: 0 2px 8px rgba(107,71,184,0.25); }
+  .ne-note-chip.active {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #7c3aed;
+    transform: scale(1.1);
+  }
+
+  /* Title input */
+  .ne-title-input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font-family: 'DM Serif Display', 'Georgia', serif;
+    font-size: 29px;
+    color: #1a1030;
+    padding: 16px 28px 10px;
+    line-height: 1.25;
+    outline: none;
+    letter-spacing: -0.02em;
+  }
+
+  .ne-title-input::placeholder { color: #d4c8ea; }
+
+  /* Editor & sidebar layout */
+  .ne-editor-row { display: flex; gap: 0; }
+
+  .ne-editor-area {
+    flex: 1;
+    min-height: 380px;
+    max-height: 520px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 28px 28px;
+    direction: ltr;
+    text-align: left;
+    outline: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.82;
+    color: #2d1f4a;
+    caret-color: #7c3aed;
+    word-break: break-word;
+  }
+
+  .ne-editor-area:empty::before {
+    content: attr(data-placeholder);
+    color: #c4b3d8;
+    font-style: italic;
+    pointer-events: none;
+  }
+
+  .ne-editor-area::-webkit-scrollbar { width: 6px; }
+  .ne-editor-area::-webkit-scrollbar-track { background: #f5f0fd; border-radius: 10px; }
+  .ne-editor-area::-webkit-scrollbar-thumb { background: #c4b3e8; border-radius: 10px; }
+
+  /* Stats sidebar */
+  .ne-sidebar { width: 185px; flex-shrink: 0; padding: 18px 16px; border-left: 1px solid #f5f0fb; }
+
+  .ne-insight {
+    background: #faf7fd;
+    border: 1px solid #ede6f8;
+    border-radius: 13px;
+    padding: 14px;
+    position: sticky;
+    top: 16px;
+  }
+
+  .ne-insight h4 {
+    font-size: 10px;
+    font-weight: 700;
+    color: #c4b3d8;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  .ne-stat {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    font-size: 11.5px;
+    border-top: 1px solid #ede6f8;
+    color: #9b8bbf;
+  }
+
+  .ne-stat span:last-child { font-weight: 600; color: #6b47b8; }
+
+  /* Bottom section */
+  .ne-bottom { padding: 11px 28px 18px; border-top: 1px solid #f5f0fb; }
+
+  .ne-tags-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .ne-tags-input {
+    flex: 1;
+    min-width: 140px;
+    border: 1px solid #ddd6f0;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12.5px;
+    outline: none;
+    color: #3d2f66;
+    background: #faf8fd;
+    transition: border-color 0.14s, box-shadow 0.14s;
+  }
+
+  .ne-tags-input:focus { border-color: #a78bfa; box-shadow: 0 0 0 3px rgba(167,139,250,.1); }
+
+  .ne-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(167,139,250,0.14);
+    color: #6b47b8;
+    padding: 3px 10px 3px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background 0.12s;
+  }
+
+  .ne-tag:hover { background: rgba(167,139,250,0.24); }
+
+  .ne-tag button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #b09ad8;
+    display: flex;
+    align-items: center;
+    padding: 0;
+    transition: color 0.12s;
+  }
+
+  .ne-tag button:hover { color: #dc2626; }
+  .ne-tag button .ms { font-size: 14px; }
+
+  /* Upload buttons */
+  .ne-upload-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+  .ne-upload-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 15px;
+    border: 1px dashed #ddd6f0;
+    border-radius: 10px;
+    background: #faf7fd;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #7c6fa0;
+    cursor: pointer;
+    transition: all 0.14s;
+  }
+
+  .ne-upload-btn:hover {
+    background: #f0e8fb;
+    border-color: #b09ad8;
+    border-style: solid;
+    color: #5a3da0;
+  }
+
+  .ne-upload-btn .ms { font-size: 17px; }
+
+  /* Attachments */
+  .ne-attachments {
+    margin-top: 12px;
+    background: #f9f5ff;
+    border-radius: 10px;
+    padding: 10px 13px;
+  }
+
+  .ne-att-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 6px;
+    background: #fff;
+    border-radius: 7px;
+    margin-bottom: 5px;
+  }
+
+  .ne-att-link { color: #6b47b8; font-size: 12.5px; text-decoration: none; }
+  .ne-att-link:hover { text-decoration: underline; }
+
+  .ne-att-del {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #c4b3d8;
+    padding: 3px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    transition: color 0.12s, background 0.12s;
+  }
+
+  .ne-att-del:hover { color: #dc2626; background: #fee2e2; }
+  .ne-att-del .ms { font-size: 15px; }
+
+  /* Header */
+  .ne-root { display: flex; min-height: 100vh; background: #f4f0fa; direction: ltr; }
+  .ne-main { flex: 1; margin-left: 256px; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  .ne-main::-webkit-scrollbar { width: 7px; }
+  .ne-main::-webkit-scrollbar-track { background: #ede8f5; border-radius: 10px; }
+  .ne-main::-webkit-scrollbar-thumb { background: #c4b3e8; border-radius: 10px; }
+
   .ne-header {
-    display:flex; align-items:center; justify-content:space-between;
-    padding:0 20px; height:56px; background:#fff;
-    border-bottom:1px solid #ede8f5;
-    position:sticky; top:0; z-index:50;
-    box-shadow:0 1px 3px rgba(107,71,184,.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 22px;
+    height: 58px;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(196,179,232,0.28);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: 0 1px 0 rgba(103,75,181,0.05), 0 4px 14px rgba(103,75,181,0.04);
   }
-  .ne-header-left { display:flex; align-items:center; gap:8px; }
+
+  .ne-header-left { display: flex; align-items: center; gap: 8px; }
+
   .ne-back-btn {
-    display:flex; align-items:center; justify-content:center;
-    width:32px; height:32px; border:none; background:transparent;
-    border-radius:7px; cursor:pointer; color:#7c6fa0;
-    transition:background .15s,color .15s;
+    display: flex; align-items: center; justify-content: center;
+    width: 34px; height: 34px;
+    border: none; background: transparent;
+    border-radius: 9px; cursor: pointer; color: #7c6fa0;
+    transition: background 0.14s, color 0.14s, transform 0.1s;
   }
-  .ne-back-btn:hover { background:#f0eaf9; color:#5a3da0; }
-  .ne-header-title { font-family:'DM Serif Display',serif; font-size:16px; color:#2d1f4a; }
-  .ne-header-center { display:flex; align-items:center; gap:6px; }
+  .ne-back-btn:hover { background: #f0e8fb; color: #5a3da0; transform: translateX(-1px); }
+
+  .ne-header-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 16px;
+    color: #2d1f4a;
+    letter-spacing: -0.01em;
+  }
+
+  .ne-header-center { display: flex; align-items: center; gap: 5px; }
+
   .ne-badge {
-    display:inline-flex; align-items:center; gap:4px;
-    padding:3px 9px; border-radius:20px; font-size:11px; font-weight:500;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 20px;
+    font-size: 11.5px; font-weight: 500;
+    letter-spacing: 0.01em;
   }
-  .ne-badge-saved { background:#e8faf0; color:#16a34a; }
-  .ne-badge-unsaved { background:#fff7ed; color:#ea580c; }
-  .ne-badge-meta { background:#f0eaf9; color:#6b47b8; }
-  .ne-badge .ms { font-size:12px; }
-  .ne-header-right { display:flex; align-items:center; gap:6px; }
+
+  .ne-badge .ms { font-size: 13px; }
+  .ne-badge-saved   { background: #e8faf0; color: #15803d; }
+  .ne-badge-unsaved { background: #fff3eb; color: #c2410c; }
+  .ne-badge-meta    { background: #ede9fe; color: #6d28d9; }
+
+  .ne-header-right { display: flex; align-items: center; gap: 5px; }
+
   .ne-btn-ghost {
-    display:inline-flex; align-items:center; gap:4px;
-    padding:5px 11px; background:transparent; border:1px solid #ddd6f0;
-    border-radius:7px; cursor:pointer; font-size:12.5px; font-weight:500;
-    color:#4a3b6e; transition:all .15s; white-space:nowrap;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 11px;
+    background: transparent;
+    border: 1px solid #ddd6f0;
+    border-radius: 8px; cursor: pointer;
+    font-size: 12.5px; font-weight: 500; color: #4a3b6e;
+    transition: all 0.14s; white-space: nowrap;
   }
-  .ne-btn-ghost:hover { background:#f0eaf9; border-color:#a78bfa; color:#5a3da0; }
-  .ne-btn-ghost .ms { font-size:15px; }
+  .ne-btn-ghost:hover { background: #f0e8fb; border-color: #b09ad8; color: #5a3da0; }
+
   .ne-btn-primary {
-    display:inline-flex; align-items:center; gap:4px;
-    padding:6px 16px; background:#6b47b8; border:none;
-    border-radius:8px; cursor:pointer; font-size:12.5px; font-weight:600;
-    color:#fff; transition:all .15s;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 7px 18px;
+    background: linear-gradient(135deg, #7c3aed, #6b47b8);
+    border: none; border-radius: 9px; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: #fff;
+    transition: all 0.14s;
+    box-shadow: 0 2px 10px rgba(124,58,237,0.35);
   }
-  .ne-btn-primary:hover { background:#5a3da0; }
-  .ne-btn-primary:disabled { opacity:.5; cursor:not-allowed; }
+  .ne-btn-primary:hover {
+    background: linear-gradient(135deg, #6d28d9, #5a3da0);
+    box-shadow: 0 4px 16px rgba(124,58,237,0.45);
+    transform: translateY(-1px);
+  }
+  .ne-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
   .ne-btn-cancel {
-    padding:6px 12px; background:transparent; border:none;
-    border-radius:7px; cursor:pointer; font-size:12.5px; font-weight:500;
-    color:#7c6fa0; transition:background .15s;
+    padding: 6px 12px; background: transparent; border: none;
+    border-radius: 8px; cursor: pointer;
+    font-size: 12.5px; font-weight: 500; color: #7c6fa0;
+    transition: background 0.14s;
   }
-  .ne-btn-cancel:hover { background:#f0eaf9; }
-  .ne-export-wrap { position:relative; }
+  .ne-btn-cancel:hover { background: #f0e8fb; }
+
+  /* Body scroll area */
+  .ne-body {
+    flex: 1; overflow-y: auto; overflow-x: hidden; padding: 22px 24px;
+  }
+  .ne-body::-webkit-scrollbar { width: 7px; }
+  .ne-body::-webkit-scrollbar-track { background: #ede8f5; border-radius: 10px; }
+  .ne-body::-webkit-scrollbar-thumb { background: #c4b3e8; border-radius: 10px; }
+
+  /* Page card */
+  .ne-page {
+    max-width: 900px; margin: 0 auto;
+    background: #fff; border-radius: 18px;
+    border: 1px solid #e8e0f4;
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.9) inset,
+      0 4px 24px rgba(103,75,181,0.07),
+      0 1px 4px rgba(0,0,0,0.04);
+    overflow: hidden;
+    transition: background-color 0.25s ease;
+  }
+
+  /* Page top */
+  .ne-page-top { padding: 18px 28px 0; }
+
+  .ne-meta-row {
+    display: flex; align-items: center;
+    gap: 10px; margin-bottom: 10px; flex-wrap: wrap;
+  }
+
+  .ne-meta-date {
+    font-size: 11px; font-weight: 600;
+    color: #b0a0cc;
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+
+  .ne-cat-select {
+    appearance: none; -webkit-appearance: none;
+    background: #f7f2ff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%23a78bfa' stroke-width='1.3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 8px center;
+    border: 1px solid #ddd6f0; border-radius: 16px;
+    padding: 4px 24px 4px 11px;
+    font-size: 12px; font-weight: 500; color: #6b47b8;
+    cursor: pointer; outline: none;
+    transition: border-color 0.14s, background 0.14s;
+  }
+  .ne-cat-select:hover { background-color: #f0e8fb; border-color: #b09ad8; }
+
+  /* Toast */
+  .ne-toast {
+    position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+    background: rgba(26,16,48,0.95); color: #e0d7f7;
+    padding: 11px 18px; border-radius: 12px;
+    font-size: 13px; font-weight: 500;
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.22);
+    backdrop-filter: blur(4px);
+    animation: toastSlideIn 0.22s cubic-bezier(.34,1.2,.64,1);
+  }
+  @keyframes toastSlideIn {
+    from { opacity:0; transform: translateY(10px) scale(0.97); }
+    to   { opacity:1; transform: translateY(0) scale(1); }
+  }
+
+  /* Overlays & Modals */
+  .ne-overlay {
+    position: fixed; inset: 0;
+    background: rgba(20,10,40,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; backdrop-filter: blur(5px);
+    animation: fadeIn 0.15s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .ne-modal {
+    background: #fff; border-radius: 20px; padding: 28px;
+    width: 90%; max-width: 460px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.2), 0 4px 16px rgba(103,75,181,0.15);
+    animation: modalPop 0.2s cubic-bezier(.34,1.2,.64,1);
+  }
+  @keyframes modalPop {
+    from { opacity: 0; transform: scale(0.95) translateY(8px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .ne-modal h3 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 20px; color: #1a1030; margin-bottom: 6px;
+  }
+
+  .ne-modal p { font-size: 13px; color: #9b8bbf; margin-bottom: 16px; }
+
+  .ne-modal-row { display: flex; gap: 8px; margin-bottom: 16px; }
+
+  .ne-modal-row input {
+    flex: 1; padding: 9px 13px;
+    border: 1px solid #ddd6f0; border-radius: 9px;
+    font-size: 13px; background: #faf8fd; color: #3d2f66; outline: none;
+    transition: border-color 0.14s;
+  }
+  .ne-modal-row input:focus { border-color: #a78bfa; }
+
+  .ne-modal-row button {
+    background: #6b47b8; color: #fff; border: none;
+    border-radius: 9px; padding: 0 16px;
+    cursor: pointer; font-weight: 600; font-size: 13px;
+    transition: background 0.14s;
+  }
+  .ne-modal-row button:hover { background: #5a3da0; }
+
+  .ne-modal-close {
+    width: 100%; padding: 10px;
+    background: #f5f0ff; border: none; border-radius: 10px;
+    cursor: pointer; font-size: 13px; font-weight: 500; color: #6b47b8;
+    transition: background 0.14s;
+  }
+  .ne-modal-close:hover { background: #ede5f8; }
+
+  /* Collab list in modal */
+  .ne-collab-list { margin-top: 14px; border-top: 1px solid #f0ebf8; padding-top: 14px; }
+
+  .ne-collab-list h4 {
+    font-size: 11px; font-weight: 700; color: #b0a0cc;
+    text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 10px;
+  }
+
+  .ne-collab-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0; border-bottom: 1px solid #f5f0fb;
+  }
+
+  .ne-collab-role {
+    font-size: 10.5px; background: #f0e8fb; color: #7c3aed;
+    padding: 2px 8px; border-radius: 12px; font-weight: 500;
+  }
+
+  .ne-collab-del {
+    background: none; border: none; cursor: pointer;
+    color: #c4b3d8; padding: 3px; border-radius: 5px;
+    display: flex; align-items: center;
+    transition: color 0.12s, background 0.12s;
+  }
+  .ne-collab-del:hover { color: #dc2626; background: #fee2e2; }
+
+  /* Import modal */
+  .ne-import-zone {
+    border: 2px dashed #ddd6f0; border-radius: 13px;
+    padding: 28px 20px; text-align: center; cursor: pointer;
+    background: #faf8fd; transition: all 0.14s; margin-bottom: 14px;
+  }
+  .ne-import-zone:hover, .ne-import-zone.drag { border-color: #a78bfa; background: #f5f0ff; }
+  .ne-import-zone .ms { font-size: 34px; color: #b09ad8; margin-bottom: 8px; display: block; }
+
+  /* Export dropdown */
+  .ne-export-wrap { position: relative; }
   .ne-export-menu {
-    position:absolute; top:calc(100%+6px); right:0;
-    background:#fff; border:1px solid #ede8f5; border-radius:12px;
-    box-shadow:0 8px 24px rgba(0,0,0,.1); z-index:200; min-width:180px; overflow:hidden;
+    position: absolute; top: calc(100%+6px); right: 0;
+    background: #fff; border: 1px solid #e6dff4; border-radius: 12px;
+    box-shadow: 0 8px 28px rgba(103,75,181,0.14); z-index: 200;
+    min-width: 178px; overflow: hidden;
+    animation: menuIn 0.14s ease;
+  }
+  @keyframes menuIn {
+    from { opacity:0; transform: translateY(-4px) scale(0.98); }
+    to   { opacity:1; transform: translateY(0) scale(1); }
   }
   .ne-export-menu button {
-    display:flex; align-items:center; gap:8px; width:100%; padding:9px 14px;
-    text-align:left; background:none; border:none; cursor:pointer;
-    font-size:12.5px; color:#3d2f66; transition:background .12s;
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; padding: 10px 14px;
+    background: none; border: none; text-align: left;
+    font-size: 13px; color: #3d2f66; cursor: pointer;
+    transition: background 0.12s;
   }
-  .ne-export-menu button:hover { background:#f5f0ff; }
+  .ne-export-menu button:hover { background: #f5f0fd; }
 
-  /* ── Toolbar ── */
-  .ne-toolbar {
-    background:#fff; border-bottom:1px solid #ede8f5;
-    padding:5px 12px; display:flex; flex-wrap:wrap; gap:2px; align-items:center;
-    position:sticky; top:56px; z-index:40;
-    box-shadow:0 1px 2px rgba(0,0,0,.04);
-  }
-  .ne-tb-group {
-    display:flex; align-items:center; gap:1px;
-    padding:0 4px; border-right:1px solid #ede8f5;
-  }
-  .ne-tb-group:last-child { border-right:none; }
-  .ne-tb-label {
-    font-size:9px; font-weight:700; color:#b0a0cc; text-transform:uppercase;
-    letter-spacing:.5px; padding:0 4px 0 2px; white-space:nowrap;
-  }
-  .ne-tb-sep { width:1px; height:22px; background:#ede8f5; margin:0 3px; flex-shrink:0; }
-  .ne-tb-btn {
-    display:inline-flex; align-items:center; justify-content:center;
-    width:28px; height:28px; border:none; background:transparent;
-    border-radius:5px; cursor:pointer; color:#4a3b6e;
-    transition:background .12s, color .12s; flex-shrink:0;
-    position:relative;
-  }
-  .ne-tb-btn .ms { font-size:17px; line-height:1; }
-  .ne-tb-btn:hover { background:#f0eaf9; color:#5a3da0; }
-  .ne-tb-btn.active { background:#ede5f8; color:#5a3da0; }
-  .ne-tb-btn.active .ms { font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 20; }
-  .ne-tb-btn[title]:hover::after {
-    content:attr(title); position:absolute; top:calc(100%+5px); left:50%;
-    transform:translateX(-50%); background:#1a1030; color:#fff;
-    font-size:10.5px; padding:3px 8px; border-radius:5px; white-space:nowrap;
-    pointer-events:none; z-index:999;
-  }
-  .ne-tb-heading-btn {
-    display:inline-flex; align-items:center; justify-content:center;
-    height:26px; padding:0 8px; border:1px solid transparent;
-    background:transparent; border-radius:5px; cursor:pointer;
-    font-size:11px; font-weight:700; color:#4a3b6e;
-    transition:all .12s; flex-shrink:0; white-space:nowrap;
-  }
-  .ne-tb-heading-btn:hover { background:#f0eaf9; border-color:#ddd6f0; }
-  .ne-tb-heading-btn.active { background:#ede5f8; color:#5a3da0; border-color:#c4b3e8; }
-  .ne-tb-select {
-    height:28px; padding:0 22px 0 7px; border:1px solid #e5dff2;
-    border-radius:6px; font-size:12px; color:#3d2f66; background:#faf8fd
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238b6fd4' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")
-    no-repeat right 6px center;
-    appearance:none; cursor:pointer; transition:border-color .15s; outline:none;
-    flex-shrink:0;
-  }
-  .ne-tb-select:hover { border-color:#a78bfa; }
-  .ne-tb-select:focus { border-color:#6b47b8; box-shadow:0 0 0 2px rgba(107,71,184,.12); }
-  .ne-tb-select-font { width:130px; }
-  .ne-tb-select-size { width:54px; }
-
-  /* Color pickers */
-  .ne-color-wrap { position:relative; display:inline-flex; flex-direction:column; align-items:center; }
-  .ne-color-btn {
-    display:flex; flex-direction:column; align-items:center; gap:1px;
-    width:30px; height:28px; border:none; background:transparent;
-    border-radius:5px; cursor:pointer; padding:3px 5px; transition:background .12s;
-  }
-  .ne-color-btn:hover { background:#f0eaf9; }
-  .ne-color-btn .ms { font-size:16px; color:#4a3b6e; }
-  .ne-color-bar { width:16px; height:3px; border-radius:2px; flex-shrink:0; }
-  .ne-color-dropdown {
-    position:absolute; top:calc(100%+6px); left:50%; transform:translateX(-50%);
-    background:#fff; border:1px solid #ede8f5; border-radius:14px;
-    box-shadow:0 8px 28px rgba(103,75,181,.15); z-index:500;
-    padding:12px 14px; min-width:210px;
-    animation:dropIn .14s ease;
-  }
-  @keyframes dropIn { from{opacity:0;transform:translateX(-50%) translateY(-4px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
-  .ne-color-label { display:block; font-size:9.5px; font-weight:700; color:#9b8bbf; text-transform:uppercase; letter-spacing:.7px; margin:8px 0 6px; }
-  .ne-color-label:first-child { margin-top:0; }
-  .ne-color-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:5px; margin-bottom:4px; }
-  .ne-swatch {
-    width:28px; height:28px; border-radius:6px; border:2px solid transparent;
-    cursor:pointer; transition:transform .12s, box-shadow .12s;
-    box-shadow:0 1px 3px rgba(0,0,0,.1);
-  }
-  .ne-swatch:hover { transform:scale(1.15); box-shadow:0 2px 8px rgba(103,75,181,.25); }
-  .ne-swatch.sel { border-color:#6b47b8; box-shadow:0 0 0 2px rgba(107,71,184,.3); }
-  .ne-custom-row {
-    display:flex; align-items:center; gap:10px;
-    padding-top:9px; margin-top:6px; border-top:1px solid #f0ebf6;
-  }
-  .ne-custom-row input[type=color] {
-    width:36px; height:28px; border:1px solid #e5dff2;
-    border-radius:6px; padding:2px; cursor:pointer; background:#fff;
-  }
-  .ne-custom-row span { font-size:12px; color:#6b5f82; font-weight:500; }
-
-  /* ── Body / scroll ── */
-  .ne-body { flex:1; overflow-y:auto; overflow-x:hidden; padding:24px; }
-  .ne-body::-webkit-scrollbar { width:5px; }
-  .ne-body::-webkit-scrollbar-track { background:#f0ebf6; border-radius:6px; }
-  .ne-body::-webkit-scrollbar-thumb { background:#c4b3e8; border-radius:6px; }
-
-  /* ── Page card ── */
-  .ne-page {
-    max-width:860px; margin:0 auto;
-    background:#fff; border-radius:14px;
-    border:1px solid #ede8f5;
-    box-shadow:0 2px 20px rgba(107,71,184,.06);
-    overflow:hidden;
-  }
-  .ne-page-top { padding:20px 28px 0; }
-  .ne-meta-row { display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
-  .ne-meta-date { font-size:11.5px; color:#9b8bbf; font-weight:500; }
-  .ne-cat-select {
-    padding:3px 22px 3px 9px; background:#f5f0ff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238b6fd4' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 6px center;
-    border:1px solid #ddd6f0; border-radius:14px; font-size:11.5px; font-weight:500;
-    color:#6b47b8; cursor:pointer; appearance:none; outline:none; transition:all .15s;
-  }
-  .ne-cat-select:hover { background:#ede5f8; border-color:#a78bfa; }
-
-  /* ── Color chips ── */
-  .ne-note-colors { display:flex; align-items:center; gap:5px; padding:10px 28px; border-top:1px solid #f5f0fb; border-bottom:1px solid #f5f0fb; flex-wrap:wrap; }
-  .ne-note-colors-label { font-size:10.5px; font-weight:600; color:#9b8bbf; text-transform:uppercase; letter-spacing:.5px; margin-right:4px; }
-  .ne-note-chip {
-    width:20px; height:20px; border-radius:50%; border:2px solid transparent;
-    cursor:pointer; transition:all .15s; box-shadow:0 1px 3px rgba(0,0,0,.1);
-  }
-  .ne-note-chip:hover { transform:scale(1.2); }
-  .ne-note-chip.active { border-color:#5a3da0; box-shadow:0 0 0 2px #fff, 0 0 0 4px #6b47b8; }
-
-  /* ── Title ── */
-  .ne-title-input {
-    width:100%; border:none; background:transparent;
-    font-family:'DM Serif Display',serif; font-size:28px; color:#1a1030;
-    padding:16px 28px 10px; line-height:1.2; outline:none; direction:ltr; text-align:left;
-  }
-  .ne-title-input::placeholder { color:#cac4d4; }
-
-  /* ── Editor row ── */
-  .ne-editor-row { display:flex; gap:0; }
-  .ne-editor-area {
-    flex:1; min-height:420px; padding:14px 28px 24px;
-    direction:ltr; text-align:left; outline:none;
-    font-family:'DM Sans',sans-serif; font-size:15px; line-height:1.75; color:#2d1f4a;
-    border:none; caret-color:#6b47b8; word-break:break-word;
-    unicode-bidi:isolate;
-  }
-  .ne-editor-area:empty::before {
-    content:attr(data-placeholder); color:#cac4d4; pointer-events:none;
-  }
-  .ne-editor-area:focus { outline:none; }
-  .ne-editor-area p { margin:0 0 .6em; }
-  .ne-editor-area ul { margin:.4em 0 .8em 1.6em; padding:0; list-style:disc; }
-  .ne-editor-area ol { margin:.4em 0 .8em 1.6em; padding:0; list-style:decimal; }
-  .ne-editor-area li { margin:.2em 0; display:list-item; }
-  .ne-editor-area blockquote {
-    border-left:4px solid #a78bfa; margin:1em 0; padding:.6em 1.2em;
-    color:#6b47b8; background:#faf5ff; border-radius:0 8px 8px 0;
-    font-style:italic;
-  }
-  .ne-editor-area h1 { font-family:'DM Serif Display',serif; font-size:2em; color:#1a1030; margin:.4em 0 .3em; line-height:1.2; }
-  .ne-editor-area h2 { font-family:'DM Serif Display',serif; font-size:1.5em; color:#1a1030; margin:.5em 0 .3em; line-height:1.3; }
-  .ne-editor-area h3 { font-size:1.17em; font-weight:700; color:#1a1030; margin:.6em 0 .3em; }
-  .ne-editor-area a { color:#6b47b8; text-decoration:underline; cursor:pointer; }
-  .ne-editor-area a:hover { color:#5a3da0; }
-  .ne-editor-area pre { background:#1e1633; color:#e0d7f7; border-radius:10px; padding:1em; font-size:13px; overflow-x:auto; margin:.6em 0; }
-  .ne-editor-area table { border-collapse:collapse; width:100%; margin:12px 0; }
-  .ne-editor-area th,.ne-editor-area td { border:1px solid #ddd6f0; padding:8px 12px; text-align:left; }
-  .ne-editor-area th { background:#f5f0ff; font-weight:600; color:#5a3da0; }
-  .ne-editor-area hr { border:none; height:1px; background:linear-gradient(90deg,transparent,#c4b3e8,transparent); margin:20px 0; }
-
-  /* ── Resizable images ── */
-  .ne-editor-area .ne-img-wrapper {
-    display:inline-block; position:relative; cursor:default; margin:8px 0;
-    line-height:0;
-  }
-  .ne-editor-area .ne-img-wrapper img {
-    display:block; border-radius:8px; max-width:100%; height:auto;
-    box-shadow:0 2px 10px rgba(0,0,0,.08);
-  }
-  .ne-editor-area .ne-img-wrapper.selected img { outline:2.5px solid #6b47b8; outline-offset:2px; }
-  .ne-img-controls {
-    position:absolute; top:-38px; left:50%; transform:translateX(-50%);
-    background:#1a1030; border-radius:8px; padding:4px 6px;
-    display:flex; align-items:center; gap:4px; white-space:nowrap; z-index:100;
-    box-shadow:0 4px 14px rgba(0,0,0,.2);
-  }
-  .ne-img-controls button {
-    display:flex; align-items:center; justify-content:center;
-    width:26px; height:26px; border:none; background:transparent;
-    border-radius:5px; cursor:pointer; color:#e0d7f7; transition:background .12s;
-  }
-  .ne-img-controls button:hover { background:rgba(255,255,255,.15); }
-  .ne-img-controls button.danger:hover { background:rgba(220,38,38,.3); color:#fca5a5; }
-  .ne-img-controls .ms { font-size:15px; }
-  .ne-img-controls-sep { width:1px; height:18px; background:rgba(255,255,255,.2); margin:0 2px; }
-  .ne-img-size-label {
-    font-size:10px; color:#a78bfa; font-weight:600;
-    padding:0 4px; min-width:32px; text-align:center;
-  }
-  .ne-resize-handle {
-    position:absolute; bottom:-5px; right:-5px;
-    width:12px; height:12px; background:#6b47b8; border-radius:50%;
-    cursor:se-resize; display:none; border:2px solid #fff;
-    box-shadow:0 1px 4px rgba(0,0,0,.2);
-  }
-  .ne-img-wrapper.selected .ne-resize-handle { display:block; }
-
-  /* ── Sidebar ── */
-  .ne-sidebar { width:190px; flex-shrink:0; padding:18px 14px; border-left:1px solid #f0ebf6; display:none; }
-  @media(min-width:1100px){.ne-sidebar{display:block;}}
-  .ne-insight { background:#faf7fd; border-radius:11px; padding:14px; position:sticky; top:16px; }
-  .ne-insight h4 { font-size:9.5px; font-weight:700; color:#9b8bbf; text-transform:uppercase; letter-spacing:.7px; margin-bottom:12px; }
-  .ne-stat { display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-top:1px solid #ede8f5; font-size:11.5px; }
-  .ne-stat span:first-child { color:#7c6fa0; }
-  .ne-stat span:last-child { font-weight:600; color:#6b47b8; }
-
-  /* ── Bottom strip ── */
-  .ne-bottom { padding:10px 28px 18px; border-top:1px solid #f5f0fb; }
-  .ne-tags-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:9px; }
-  .ne-tags-input {
-    flex:1; min-width:150px; border:1px solid #ddd6f0; border-radius:18px;
-    padding:5px 13px; font-size:12.5px; outline:none; color:#3d2f66; background:#faf8fd;
-    transition:border-color .15s;
-  }
-  .ne-tags-input:focus { border-color:#a78bfa; box-shadow:0 0 0 2px rgba(107,71,184,.08); }
-  .ne-tag {
-    display:inline-flex; align-items:center; gap:4px;
-    background:rgba(167,139,250,.15); color:#6b47b8;
-    padding:3px 9px 3px 11px; border-radius:18px; font-size:11.5px; font-weight:500;
-  }
-  .ne-tag button { background:none; border:none; cursor:pointer; color:#9b8bbf; display:flex; align-items:center; padding:0; }
-  .ne-tag button .ms { font-size:12px; }
-  .ne-tag button:hover { color:#dc2626; }
-  .ne-upload-row { display:flex; gap:8px; flex-wrap:wrap; }
-  .ne-upload-btn {
-    display:inline-flex; align-items:center; gap:5px;
-    padding:6px 14px; border:1px solid #ddd6f0; border-radius:8px;
-    background:#faf5ff; font-size:12.5px; font-weight:500; color:#6b47b8;
-    cursor:pointer; transition:all .15s;
-  }
-  .ne-upload-btn:hover { background:#ede5f8; border-color:#a78bfa; }
-  .ne-upload-btn .ms { font-size:15px; }
-  .ne-attachments { margin-top:12px; }
-  .ne-att-item {
-    display:flex; align-items:center; justify-content:space-between;
-    padding:7px 11px; background:#f5f0ff; border-radius:8px; margin-bottom:5px;
-  }
-  .ne-att-link { font-size:12.5px; color:#6b47b8; text-decoration:none; }
-  .ne-att-link:hover { text-decoration:underline; }
-  .ne-att-del { background:none; border:none; cursor:pointer; color:#9b8bbf; display:flex; align-items:center; }
-  .ne-att-del:hover { color:#dc2626; }
-  .ne-att-del .ms { font-size:15px; }
-
-  /* ── Save toast ── */
-  .ne-toast {
-    position:fixed; bottom:28px; right:28px; z-index:9999;
-    background:#1a1030; color:#e0d7f7; padding:10px 18px;
-    border-radius:10px; font-size:13px; font-weight:500;
-    display:flex; align-items:center; gap:8px;
-    box-shadow:0 8px 24px rgba(0,0,0,.2);
-    animation:toastIn .2s ease;
-  }
-  .ne-toast .ms { font-size:16px; color:#a78bfa; }
-  @keyframes toastIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
-
-  /* ── Modals ── */
-  .ne-overlay {
-    position:fixed; inset:0; background:rgba(20,10,40,.45);
-    display:flex; align-items:center; justify-content:center; z-index:1000;
-    backdrop-filter:blur(4px);
-  }
-  .ne-modal {
-    background:#fff; border-radius:18px; padding:28px;
-    width:90%; max-width:440px;
-    box-shadow:0 20px 50px rgba(0,0,0,.18);
-    animation:modalIn .18s ease;
-  }
-  @keyframes modalIn { from{opacity:0;transform:scale(.97)} to{opacity:1;transform:none} }
-  .ne-modal h3 { font-family:'DM Serif Display',serif; font-size:20px; color:#1a1030; margin-bottom:8px; }
-  .ne-modal p { font-size:13px; color:#7c6fa0; margin-bottom:16px; }
-  .ne-modal-row { display:flex; gap:8px; margin-bottom:16px; }
-  .ne-modal-row input {
-    flex:1; padding:8px 12px; border:1px solid #ddd6f0; border-radius:8px;
-    font-size:13px; outline:none; color:#3d2f66;
-  }
-  .ne-modal-row input:focus { border-color:#a78bfa; }
-  .ne-modal-row button {
-    padding:0 15px; background:#6b47b8; color:#fff; border:none;
-    border-radius:8px; cursor:pointer; font-weight:600; font-size:13px;
-    transition:background .15s; white-space:nowrap;
-  }
-  .ne-modal-row button:hover { background:#5a3da0; }
-  .ne-modal-close {
-    width:100%; padding:9px; background:#f5f0ff; border:none;
-    border-radius:9px; cursor:pointer; font-size:13px; font-weight:500; color:#6b47b8;
-    transition:background .15s;
-  }
-  .ne-modal-close:hover { background:#ede5f8; }
-  .ne-collab-list { margin-top:14px; border-top:1px solid #f0ebf6; padding-top:12px; }
-  .ne-collab-list h4 { font-size:13px; font-weight:600; color:#3d2f66; margin-bottom:10px; }
-  .ne-collab-item {
-    display:flex; align-items:center; justify-content:space-between;
-    padding:7px 0; border-bottom:1px solid #f5f0ff; font-size:13px; gap:6px;
-  }
-  .ne-collab-role { font-size:10.5px; background:#f0eaf9; padding:2px 8px; border-radius:12px; color:#6b47b8; flex-shrink:0; }
-  .ne-collab-del { background:none; border:none; cursor:pointer; color:#9b8bbf; display:flex; flex-shrink:0; }
-  .ne-collab-del:hover { color:#dc2626; }
-
-  /* ── Import modal ── */
-  .ne-import-zone {
-    border:2px dashed #ddd6f0; border-radius:12px; padding:28px;
-    text-align:center; cursor:pointer; transition:all .15s; background:#faf8fd;
-    margin-bottom:14px;
-  }
-  .ne-import-zone:hover,.ne-import-zone.drag { border-color:#a78bfa; background:#f5f0ff; }
-  .ne-import-zone .ms { font-size:32px; color:#a78bfa; margin-bottom:8px; display:block; }
-  .ne-import-zone p { font-size:13px; color:#7c6fa0; margin:0; }
-
-  /* ── Loading / Error ── */
-  .ne-loading,.ne-error {
-    flex:1; display:flex; flex-direction:column;
-    align-items:center; justify-content:center; gap:14px; color:#7c6fa0;
+  /* Loading / error inline */
+  .ne-loading, .ne-error {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-height: 50vh; gap: 14px; color: #9b8bbf;
   }
   .ne-spinner {
-    width:40px; height:40px; border:3px solid #ede8f5;
-    border-top-color:#6b47b8; border-radius:50%;
-    animation:spin .7s linear infinite;
+    width: 40px; height: 40px;
+    border: 3px solid #ede6f8;
+    border-top-color: #7c3aed;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
   }
-  @keyframes spin { to{transform:rotate(360deg)} }
-  .ne-error .ms { font-size:44px; color:#dc2626; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
-  @media(max-width:768px){
-    .ne-main { margin-left:0; }
-    .ne-header { padding:0 12px; }
-    .ne-body { padding:12px; }
-    .ne-title-input { font-size:22px; padding:14px 16px 8px; }
-    .ne-editor-area { padding:10px 16px 20px; }
-    .ne-page-top { padding:14px 16px 0; }
-    .ne-note-colors { padding:8px 16px; }
-    .ne-bottom { padding:8px 16px 14px; }
-    .ne-header-center { display:none; }
-    .ne-toolbar { top:56px; }
+  .ne-error .material-symbols-outlined { font-size: 44px; color: #dc2626; }
+  .ne-error p { font-size: 15px; color: #6b5f82; text-align: center; }
+
+  @media (max-width: 768px) {
+    .ne-main { margin-left: 0; }
+    .ne-sidebar { display: none; }
+    .ne-note-colors { padding: 8px 16px; }
+    .ne-editor-area { padding: 10px 16px 20px; min-height: 300px; }
+    .ne-title-input { font-size: 22px; padding: 14px 16px 8px; }
+    .ne-page-top { padding: 14px 16px 0; }
+    .ne-bottom { padding: 8px 16px 14px; }
+    .ne-header-center { display: none; }
   }
 `
 
-/* ─── Save Selection Helper ─────────────────────────────────── */
+/* ─── Selection helpers ─────────────────────────────────────── */
 const saveSelection = () => {
   const sel = window.getSelection()
   if (!sel || !sel.rangeCount) return null
@@ -433,7 +863,7 @@ const restoreSelection = (range) => {
   sel.addRange(range)
 }
 
-/* ─── Toolbar Component ─────────────────────────────────────── */
+/* ─── Toolbar ───────────────────────────────────────────────── */
 const Toolbar = ({ onFormat, onSave, onUndo, onRedo, onClearFormatting, isSaved, saving }) => {
   const [fontFamily, setFontFamily] = useState('DM Sans')
   const [fontSize, setFontSize] = useState('15')
@@ -493,16 +923,13 @@ const Toolbar = ({ onFormat, onSave, onUndo, onRedo, onClearFormatting, isSaved,
     }
   }, [])
 
-  /* Save selection before dropdown opens so we can restore it */
   const openColorPicker = (type) => {
     savedRangeRef.current = saveSelection()
     if (type === 'text') { setShowTextColor(v => !v); setShowHighlight(false) }
     else { setShowHighlight(v => !v); setShowTextColor(false) }
   }
 
-  const cmd = (command, value = null) => {
-    if (onFormat) onFormat(command, value)
-  }
+  const cmd = (command, value = null) => { if (onFormat) onFormat(command, value) }
 
   const applyFont = (f) => { setFontFamily(f); cmd('fontName', f) }
   const applySize = (s) => { setFontSize(s); cmd('fontSize', s) }
@@ -517,12 +944,9 @@ const Toolbar = ({ onFormat, onSave, onUndo, onRedo, onClearFormatting, isSaved,
   const applyHighlight = (c) => {
     setHighlightColor(c)
     restoreSelection(savedRangeRef.current)
-    const color = c === 'transparent' ? 'transparent' : c
-    cmd('hiliteColor', color)
+    cmd('hiliteColor', c === 'transparent' ? 'transparent' : c)
     setShowHighlight(false)
   }
-
-  const handleHeading = (tag) => { cmd('heading', tag) }
 
   const insertLink = () => {
     const savedRange = saveSelection()
@@ -553,7 +977,6 @@ const Toolbar = ({ onFormat, onSave, onUndo, onRedo, onClearFormatting, isSaved,
 
   const isActive = (f) => !!activeFormats[f]
 
-  /* Detect current heading */
   const getActiveHeading = () => {
     try {
       const sel = window.getSelection()
@@ -574,15 +997,21 @@ const Toolbar = ({ onFormat, onSave, onUndo, onRedo, onClearFormatting, isSaved,
       {/* Quick Access */}
       <div className="ne-tb-group">
         <button
-          className={`ne-tb-btn ${isSaved ? '' : 'active'}`}
+          className={`ne-tb-btn${!isSaved ? ' active' : ''}`}
           onClick={onSave}
           title={saving ? 'Saving…' : isSaved ? 'Saved' : 'Save (Ctrl+S)'}
         >
           <span className="material-symbols-outlined ms">{saving ? 'sync' : isSaved ? 'cloud_done' : 'save'}</span>
         </button>
-        <button className="ne-tb-btn" onClick={onUndo} title="Undo (Ctrl+Z)"><span className="material-symbols-outlined ms">undo</span></button>
-        <button className="ne-tb-btn" onClick={onRedo} title="Redo (Ctrl+Y)"><span className="material-symbols-outlined ms">redo</span></button>
-        <button className="ne-tb-btn" onClick={onClearFormatting} title="Clear Formatting"><span className="material-symbols-outlined ms">format_clear</span></button>
+        <button className="ne-tb-btn" onClick={onUndo} title="Undo (Ctrl+Z)">
+          <span className="material-symbols-outlined ms">undo</span>
+        </button>
+        <button className="ne-tb-btn" onClick={onRedo} title="Redo (Ctrl+Y)">
+          <span className="material-symbols-outlined ms">redo</span>
+        </button>
+        <button className="ne-tb-btn" onClick={onClearFormatting} title="Clear Formatting">
+          <span className="material-symbols-outlined ms">format_clear</span>
+        </button>
       </div>
 
       {/* Font */}
@@ -595,12 +1024,20 @@ const Toolbar = ({ onFormat, onSave, onUndo, onRedo, onClearFormatting, isSaved,
         </select>
       </div>
 
-      {/* Format */}
+      {/* Text Formatting */}
       <div className="ne-tb-group">
-        <button className={`ne-tb-btn${isActive('bold') ? ' active' : ''}`} onClick={() => cmd('bold')} title="Bold (Ctrl+B)"><span className="material-symbols-outlined ms">format_bold</span></button>
-        <button className={`ne-tb-btn${isActive('italic') ? ' active' : ''}`} onClick={() => cmd('italic')} title="Italic (Ctrl+I)"><span className="material-symbols-outlined ms">format_italic</span></button>
-        <button className={`ne-tb-btn${isActive('underline') ? ' active' : ''}`} onClick={() => cmd('underline')} title="Underline (Ctrl+U)"><span className="material-symbols-outlined ms">format_underlined</span></button>
-        <button className={`ne-tb-btn${isActive('strikeThrough') ? ' active' : ''}`} onClick={() => cmd('strikeThrough')} title="Strikethrough"><span className="material-symbols-outlined ms">format_strikethrough</span></button>
+        <button className={`ne-tb-btn${isActive('bold') ? ' active' : ''}`} onClick={() => cmd('bold')} title="Bold (Ctrl+B)">
+          <span className="material-symbols-outlined ms">format_bold</span>
+        </button>
+        <button className={`ne-tb-btn${isActive('italic') ? ' active' : ''}`} onClick={() => cmd('italic')} title="Italic (Ctrl+I)">
+          <span className="material-symbols-outlined ms">format_italic</span>
+        </button>
+        <button className={`ne-tb-btn${isActive('underline') ? ' active' : ''}`} onClick={() => cmd('underline')} title="Underline (Ctrl+U)">
+          <span className="material-symbols-outlined ms">format_underlined</span>
+        </button>
+        <button className={`ne-tb-btn${isActive('strikeThrough') ? ' active' : ''}`} onClick={() => cmd('strikeThrough')} title="Strikethrough">
+          <span className="material-symbols-outlined ms">format_strikethrough</span>
+        </button>
       </div>
 
       {/* Colors */}
@@ -615,15 +1052,18 @@ const Toolbar = ({ onFormat, onSave, onUndo, onRedo, onClearFormatting, isSaved,
               <span className="ne-color-label">Text Color</span>
               <div className="ne-color-grid">
                 {colorPresets.map(c => (
-                  <button key={c} className={`ne-swatch${c === textColor ? ' sel' : ''}`}
+                  <button
+                    key={c}
+                    className={`ne-swatch${c === textColor ? ' sel' : ''}`}
                     style={{ backgroundColor: c, border: c === '#ffffff' ? '1.5px solid #ddd' : undefined }}
-                    onMouseDown={e => { e.preventDefault(); applyTextColor(c) }} />
+                    onMouseDown={e => { e.preventDefault(); applyTextColor(c) }}
+                  />
                 ))}
               </div>
               <div className="ne-custom-row">
                 <input type="color" value={textColor === '#ffffff' ? '#000000' : textColor}
                   onChange={e => applyTextColor(e.target.value)} />
-                <span>Custom</span>
+                <span>Custom color</span>
               </div>
             </div>
           )}
@@ -639,9 +1079,12 @@ const Toolbar = ({ onFormat, onSave, onUndo, onRedo, onClearFormatting, isSaved,
               <span className="ne-color-label">Highlight</span>
               <div className="ne-color-grid">
                 {highlightPresets.map(c => (
-                  <button key={c} className={`ne-swatch${c === highlightColor ? ' sel' : ''}`}
+                  <button
+                    key={c}
+                    className={`ne-swatch${c === highlightColor ? ' sel' : ''}`}
                     style={{ backgroundColor: c === 'transparent' ? '#f5f5f5' : c, border: '1.5px solid #ddd' }}
-                    onMouseDown={e => { e.preventDefault(); applyHighlight(c) }} />
+                    onMouseDown={e => { e.preventDefault(); applyHighlight(c) }}
+                  />
                 ))}
               </div>
             </div>
@@ -651,40 +1094,82 @@ const Toolbar = ({ onFormat, onSave, onUndo, onRedo, onClearFormatting, isSaved,
 
       {/* Alignment */}
       <div className="ne-tb-group">
-        <button className={`ne-tb-btn${isActive('justifyLeft') ? ' active' : ''}`} onClick={() => cmd('justifyLeft')} title="Align Left"><span className="material-symbols-outlined ms">format_align_left</span></button>
-        <button className={`ne-tb-btn${isActive('justifyCenter') ? ' active' : ''}`} onClick={() => cmd('justifyCenter')} title="Center"><span className="material-symbols-outlined ms">format_align_center</span></button>
-        <button className={`ne-tb-btn${isActive('justifyRight') ? ' active' : ''}`} onClick={() => cmd('justifyRight')} title="Align Right"><span className="material-symbols-outlined ms">format_align_right</span></button>
-        <button className={`ne-tb-btn${isActive('justifyFull') ? ' active' : ''}`} onClick={() => cmd('justifyFull')} title="Justify"><span className="material-symbols-outlined ms">format_align_justify</span></button>
+        <button className={`ne-tb-btn${isActive('justifyLeft') ? ' active' : ''}`} onClick={() => cmd('justifyLeft')} title="Align Left">
+          <span className="material-symbols-outlined ms">format_align_left</span>
+        </button>
+        <button className={`ne-tb-btn${isActive('justifyCenter') ? ' active' : ''}`} onClick={() => cmd('justifyCenter')} title="Center">
+          <span className="material-symbols-outlined ms">format_align_center</span>
+        </button>
+        <button className={`ne-tb-btn${isActive('justifyRight') ? ' active' : ''}`} onClick={() => cmd('justifyRight')} title="Align Right">
+          <span className="material-symbols-outlined ms">format_align_right</span>
+        </button>
+        <button className={`ne-tb-btn${isActive('justifyFull') ? ' active' : ''}`} onClick={() => cmd('justifyFull')} title="Justify">
+          <span className="material-symbols-outlined ms">format_align_justify</span>
+        </button>
       </div>
 
-      {/* Lists & Quote */}
+      {/* Lists & Blocks */}
       <div className="ne-tb-group">
-        <button className={`ne-tb-btn${isActive('insertUnorderedList') ? ' active' : ''}`} onClick={() => cmd('insertUnorderedList')} title="Bullet List"><span className="material-symbols-outlined ms">format_list_bulleted</span></button>
-        <button className={`ne-tb-btn${isActive('insertOrderedList') ? ' active' : ''}`} onClick={() => cmd('insertOrderedList')} title="Numbered List"><span className="material-symbols-outlined ms">format_list_numbered</span></button>
-        <button className="ne-tb-btn" onClick={() => cmd('formatBlock', 'blockquote')} title="Blockquote"><span className="material-symbols-outlined ms">format_quote</span></button>
-        <button className="ne-tb-btn" onClick={() => cmd('formatBlock', 'pre')} title="Code Block"><span className="material-symbols-outlined ms">code</span></button>
-        <button className="ne-tb-btn" onClick={() => cmd('outdent')} title="Outdent"><span className="material-symbols-outlined ms">format_indent_decrease</span></button>
-        <button className="ne-tb-btn" onClick={() => cmd('indent')} title="Indent"><span className="material-symbols-outlined ms">format_indent_increase</span></button>
+        <button className={`ne-tb-btn${isActive('insertUnorderedList') ? ' active' : ''}`} onClick={() => cmd('insertUnorderedList')} title="Bullet List">
+          <span className="material-symbols-outlined ms">format_list_bulleted</span>
+        </button>
+        <button className={`ne-tb-btn${isActive('insertOrderedList') ? ' active' : ''}`} onClick={() => cmd('insertOrderedList')} title="Numbered List">
+          <span className="material-symbols-outlined ms">format_list_numbered</span>
+        </button>
+        <button className="ne-tb-btn" onClick={() => cmd('formatBlock', 'blockquote')} title="Blockquote">
+          <span className="material-symbols-outlined ms">format_quote</span>
+        </button>
+        <button className="ne-tb-btn" onClick={() => cmd('formatBlock', 'pre')} title="Code Block">
+          <span className="material-symbols-outlined ms">code</span>
+        </button>
+        <button className="ne-tb-btn" onClick={() => cmd('outdent')} title="Outdent">
+          <span className="material-symbols-outlined ms">format_indent_decrease</span>
+        </button>
+        <button className="ne-tb-btn" onClick={() => cmd('indent')} title="Indent">
+          <span className="material-symbols-outlined ms">format_indent_increase</span>
+        </button>
       </div>
 
       {/* Headings */}
       <div className="ne-tb-group">
-        {[['h1', 'H1'], ['h2', 'H2'], ['h3', 'H3']].map(([tag, label]) => (
+        {[['h1','H1'],['h2','H2'],['h3','H3']].map(([tag, label]) => (
           <button
             key={tag}
             className={`ne-tb-heading-btn${activeHeading === tag ? ' active' : ''}`}
-            onClick={() => handleHeading(tag)}
+            onClick={() => {
+              const sel = window.getSelection()
+              if (!sel || !sel.anchorNode) return
+              let node = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode
+              let currentTag = null
+              const editorEl = document.querySelector('.ne-editor-area')
+              while (node && node !== editorEl) {
+                const t = node.tagName?.toLowerCase()
+                if (['h1','h2','h3'].includes(t)) { currentTag = t; break }
+                node = node.parentElement
+              }
+              document.execCommand('formatBlock', false, currentTag === tag ? 'p' : tag)
+            }}
             title={`Heading ${tag.slice(1)}`}
-          >{label}</button>
+          >
+            {label}
+          </button>
         ))}
-        <button className="ne-tb-heading-btn" onClick={() => cmd('formatBlock', 'p')} title="Normal Text" style={{ fontWeight: 400 }}>¶</button>
+        <button className="ne-tb-heading-btn" onClick={() => cmd('formatBlock', 'p')} title="Normal" style={{ fontWeight: 400 }}>¶</button>
       </div>
 
       {/* Insert */}
       <div className="ne-tb-group">
-        <button className="ne-tb-btn" onClick={insertLink} title="Insert Link"><span className="material-symbols-outlined ms">link</span></button>
-        <button className="ne-tb-btn" onClick={insertTable} title="Insert Table"><span className="material-symbols-outlined ms">table_rows</span></button>
-        <button className="ne-tb-btn" onClick={() => cmd('insertHTML', '<hr style="border:none;height:1px;background:linear-gradient(90deg,transparent,#c4b3e8,transparent);margin:20px 0"/>')} title="Horizontal Rule">
+        <button className="ne-tb-btn" onClick={insertLink} title="Insert Link">
+          <span className="material-symbols-outlined ms">link</span>
+        </button>
+        <button className="ne-tb-btn" onClick={insertTable} title="Insert Table">
+          <span className="material-symbols-outlined ms">table_rows</span>
+        </button>
+        <button
+          className="ne-tb-btn"
+          onClick={() => cmd('insertHTML', '<hr style="border:none;height:1px;background:linear-gradient(90deg,transparent,#c4b3e8,transparent);margin:20px 0"/>')}
+          title="Horizontal Rule"
+        >
           <span className="material-symbols-outlined ms">horizontal_rule</span>
         </button>
       </div>
@@ -723,20 +1208,21 @@ const NoteEditor = () => {
   const [collaborators, setCollaborators] = useState([])
   const [toast, setToast] = useState(null)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [folders, setFolders] = useState([])
+  const [selectedFolder, setSelectedFolder] = useState(null)
 
-  /* Resize state */
-  const resizingRef = useRef(null) // { wrapper, startX, startW }
+  const resizingRef = useRef(null)
 
   const availableCategories = ['Personal','Work','Ideas','Journal','Health','Finance','Travel','Education','Shopping','Recipes','Projects']
   const colorOptions = [
-    { value:'#ffffff', name:'Default' },
-    { value:'#fef3c7', name:'Yellow' },
-    { value:'#fce7f3', name:'Pink' },
-    { value:'#e0e7ff', name:'Lavender' },
-    { value:'#dcfce7', name:'Mint' },
-    { value:'#ffedd5', name:'Peach' },
-    { value:'#dbeafe', name:'Blue' },
-    { value:'#f1f5f9', name:'Slate' },
+    { value: '#ffffff', name: 'Default' },
+    { value: '#fef3c7', name: 'Yellow' },
+    { value: '#fce7f3', name: 'Pink' },
+    { value: '#e0e7ff', name: 'Lavender' },
+    { value: '#dcfce7', name: 'Mint' },
+    { value: '#ffedd5', name: 'Peach' },
+    { value: '#dbeafe', name: 'Blue' },
+    { value: '#f1f5f9', name: 'Slate' },
   ]
 
   const showToast = (msg, icon = 'check_circle') => {
@@ -751,25 +1237,36 @@ const NoteEditor = () => {
   }
   const { words, readTime } = calcStats()
 
-  /* ── Fetch on mount ── */
+  // Fetch folders
+  useEffect(() => {
+    const fetchFolders = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/notes/folders', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        const data = await res.json()
+        if (data.success) setFolders(data.flatFolders || data.folders || [])
+      } catch (err) { console.error('Error fetching folders:', err) }
+    }
+    if (token) fetchFolders()
+  }, [token])
+
   useEffect(() => {
     if (id && id !== 'new') { fetchNote(); fetchCollaborators() }
   }, [id])
 
-  /* ── Ctrl+S ── */
   useEffect(() => {
     const kd = (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); handleSave() } }
     window.addEventListener('keydown', kd)
     return () => window.removeEventListener('keydown', kd)
-  }, [title, content, category, tags, noteColor])
+  }, [title, content, category, tags, noteColor, selectedFolder])
 
-  /* ── Editor init ── */
+  // Editor key / click setup
   useEffect(() => {
     const el = editorRef.current
     if (!el) return
     el.dir = 'ltr'
 
-    /* Ensure links are clickable with Ctrl/Cmd+click in editor */
     const handleEditorClick = (e) => {
       const anchor = e.target.closest('a')
       if (anchor && (e.ctrlKey || e.metaKey)) {
@@ -778,12 +1275,10 @@ const NoteEditor = () => {
       }
     }
 
-    /* Enter: insert <br> + new div to avoid wrapping whole doc */
     const kd = (e) => {
       if (e.key === 'Enter' && !e.shiftKey && !isComposingRef.current) {
         const sel = window.getSelection()
         if (!sel || !sel.rangeCount) return
-        /* Let browser handle Enter inside lists and blockquotes natively */
         let node = sel.anchorNode
         while (node && node !== el) {
           const tag = node.nodeName?.toLowerCase()
@@ -792,7 +1287,6 @@ const NoteEditor = () => {
         }
         e.preventDefault()
         document.execCommand('insertHTML', false, '<br><br>')
-        /* Move cursor back one <br> so it sits between them */
         const sel2 = window.getSelection()
         if (sel2 && sel2.rangeCount) {
           const r = sel2.getRangeAt(0)
@@ -813,26 +1307,19 @@ const NoteEditor = () => {
     }
   }, [])
 
-  /* ── Image wrapper click: select / deselect ── */
+  // Image selection
   useEffect(() => {
     const el = editorRef.current
     if (!el) return
-
     const handleClick = (e) => {
-      /* Deselect all first */
       el.querySelectorAll('.ne-img-wrapper.selected').forEach(w => w.classList.remove('selected'))
       const wrapper = e.target.closest('.ne-img-wrapper')
-      if (wrapper) {
-        e.preventDefault()
-        wrapper.classList.add('selected')
-      }
+      if (wrapper) { e.preventDefault(); wrapper.classList.add('selected') }
     }
-
     el.addEventListener('click', handleClick)
     return () => el.removeEventListener('click', handleClick)
   }, [])
 
-  /* ── Global mouseup to deselect images when clicking outside ── */
   useEffect(() => {
     const handleGlobalClick = (e) => {
       if (!editorRef.current?.contains(e.target)) {
@@ -843,7 +1330,7 @@ const NoteEditor = () => {
     return () => document.removeEventListener('click', handleGlobalClick)
   }, [])
 
-  /* ── Image resize via drag ── */
+  // Image resize
   useEffect(() => {
     const onMove = (e) => {
       if (!resizingRef.current) return
@@ -851,7 +1338,8 @@ const NoteEditor = () => {
       const dx = (e.clientX || e.touches?.[0]?.clientX || startX) - startX
       const newW = Math.max(80, Math.min(startW + dx, wrapper.closest('.ne-editor-area')?.offsetWidth || 800))
       wrapper.style.width = `${newW}px`
-      wrapper.querySelector('.ne-img-size-label').textContent = `${Math.round(newW)}px`
+      const label = wrapper.querySelector('.ne-img-size-label')
+      if (label) label.textContent = `${Math.round(newW)}px`
     }
     const onUp = () => {
       if (resizingRef.current) { syncContent(); resizingRef.current = null }
@@ -861,7 +1349,6 @@ const NoteEditor = () => {
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
   }, [])
 
-  /* ── API calls ── */
   const fetchNote = async () => {
     try {
       setLoading(true)
@@ -875,6 +1362,7 @@ const NoteEditor = () => {
         setTags(n.tags || [])
         setNoteColor(n.color || '#ffffff')
         setAttachments(n.attachments || [])
+        setSelectedFolder(n.folder_id || null)
         if (editorRef.current) editorRef.current.innerHTML = n.content || ''
       } else { setError(data.message || 'Failed to load note') }
     } catch { setError('Unable to load note.') } finally { setLoading(false) }
@@ -892,7 +1380,7 @@ const NoteEditor = () => {
     if (!title.trim()) { showToast('Please enter a title', 'warning'); return }
     setSaving(true)
     try {
-      const body = JSON.stringify({ title: title.trim(), content, category, tags, color: noteColor, attachments })
+      const body = JSON.stringify({ title: title.trim(), content, category, tags, color: noteColor, attachments, folder_id: selectedFolder })
       const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
       const res = id && id !== 'new'
         ? await fetch(`http://localhost:5000/api/notes/${id}`, { method: 'PUT', headers, body })
@@ -901,7 +1389,7 @@ const NoteEditor = () => {
       if (res.ok && data.success) {
         setIsSaved(true)
         showToast('Note saved successfully')
-        if (!id || id === 'new') navigate(`/editor/${data.note._id}`)
+        if (!id || id === 'new') navigate(`/editor/${data.note._id || data.note.id}`)
       } else { showToast(data.message || 'Failed to save', 'error') }
     } catch { showToast('Unable to save note.', 'error') } finally { setSaving(false) }
   }
@@ -910,11 +1398,18 @@ const NoteEditor = () => {
     if (!inviteEmail) return
     try {
       const res = await fetch(`http://localhost:5000/api/notes/${id}/invite`, {
-        method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: inviteEmail })
       })
-      if (res.ok) { setCollaborators([...collaborators, { email: inviteEmail, role: 'viewer' }]); setInviteEmail(''); setShowInviteModal(false) }
-      else { const d = await res.json(); showToast(d.message || 'Failed', 'error') }
+      if (res.ok) {
+        setCollaborators([...collaborators, { email: inviteEmail, permission: 'viewer' }])
+        setInviteEmail(''); setShowInviteModal(false)
+        showToast('Invitation sent!')
+      } else {
+        const d = await res.json()
+        showToast(d.message || 'Failed', 'error')
+      }
     } catch { showToast('Unable to send invitation.', 'error') }
   }
 
@@ -922,7 +1417,8 @@ const NoteEditor = () => {
     if (!window.confirm(`Remove ${email}?`)) return
     try {
       const res = await fetch(`http://localhost:5000/api/notes/${id}/collaborators`, {
-        method: 'DELETE', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       })
       if (res.ok) setCollaborators(collaborators.filter(c => c.email !== email))
@@ -958,7 +1454,6 @@ const NoteEditor = () => {
     a.download = name; a.click()
   }
 
-  /* ── Import ── */
   const handleImportFile = (file) => {
     if (!file) return
     const name = file.name.toLowerCase()
@@ -971,7 +1466,6 @@ const NoteEditor = () => {
         const body = doc.body?.innerHTML || text
         if (editorRef.current) { editorRef.current.innerHTML = body; syncContent() }
       } else {
-        /* txt / md — convert to simple paragraphs */
         const html = text.split('\n').map(line => {
           if (/^### /.test(line)) return `<h3>${line.slice(4)}</h3>`
           if (/^## /.test(line)) return `<h2>${line.slice(3)}</h2>`
@@ -981,20 +1475,17 @@ const NoteEditor = () => {
         }).join('')
         if (editorRef.current) { editorRef.current.innerHTML = html; syncContent() }
       }
-      setShowImportModal(false)
-      setIsSaved(false)
+      setShowImportModal(false); setIsSaved(false)
       showToast('File imported successfully')
     }
     reader.readAsText(file)
   }
 
-  /* ── Format handler ── */
   const handleFormat = useCallback((command, value) => {
     const el = editorRef.current
     if (!el) return
     el.focus()
 
-    /* Heading toggle: if already in this heading, convert to <p> */
     if (command === 'heading') {
       const sel = window.getSelection()
       if (!sel || !sel.anchorNode) return
@@ -1019,7 +1510,6 @@ const NoteEditor = () => {
           span.style.fontSize = `${value}px`
           range.surroundContents(span)
         } catch {
-          /* surroundContents fails on cross-element selections; fall back */
           document.execCommand('styleWithCSS', false, true)
           document.execCommand('fontSize', false, '7')
           el.querySelectorAll('font[size="7"]').forEach(f => {
@@ -1049,7 +1539,6 @@ const NoteEditor = () => {
     if (!el) return
     el.focus()
     const sel = window.getSelection()
-    /* If nothing selected, select all */
     if (!sel || sel.isCollapsed) {
       const range = document.createRange()
       range.selectNodeContents(el)
@@ -1058,7 +1547,6 @@ const NoteEditor = () => {
     }
     document.execCommand('removeFormat', false, null)
     document.execCommand('unlink', false, null)
-    /* Also reset block-level elements to <p> */
     try { document.execCommand('formatBlock', false, 'p') } catch {}
     setTimeout(syncContent, 10)
   }
@@ -1068,7 +1556,6 @@ const NoteEditor = () => {
   }
   const handleContentChange = () => syncContent()
 
-  /* ── Paste: sanitise ── */
   const handlePaste = (e) => {
     e.preventDefault()
     const html = e.clipboardData.getData('text/html')
@@ -1086,9 +1573,7 @@ const NoteEditor = () => {
     syncContent()
   }
 
-  /* ── Build image wrapper HTML ── */
   const buildImageWrapper = (src, width = 'auto') => {
-    /* We embed everything inline so it persists in innerHTML */
     return `<span class="ne-img-wrapper" contenteditable="false" style="display:inline-block;position:relative;${width !== 'auto' ? 'width:' + width + 'px;' : ''}">` +
       `<img src="${src}" alt="Uploaded image" style="display:block;max-width:100%;height:auto;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.08);" draggable="false"/>` +
       `<span class="ne-img-controls">` +
@@ -1104,13 +1589,12 @@ const NoteEditor = () => {
     `</span>`
   }
 
-  /* ── Wire up image controls via delegation ── */
+  // Image controls delegation
   useEffect(() => {
     const el = editorRef.current
     if (!el) return
 
     const handleDelegation = (e) => {
-      /* Align buttons */
       const alignBtn = e.target.closest('.ne-img-align-btn')
       if (alignBtn) {
         e.preventDefault(); e.stopPropagation()
@@ -1120,11 +1604,9 @@ const NoteEditor = () => {
         if (align === 'left') { wrapper.style.cssText += ';float:left;margin:8px 14px 8px 0;' }
         else if (align === 'right') { wrapper.style.cssText += ';float:right;margin:8px 0 8px 14px;' }
         else { wrapper.style.float = ''; wrapper.style.margin = '8px auto'; wrapper.style.display = 'block' }
-        syncContent()
-        return
+        syncContent(); return
       }
 
-      /* Delete button */
       const delBtn = e.target.closest('.ne-img-del-btn')
       if (delBtn) {
         e.preventDefault(); e.stopPropagation()
@@ -1133,14 +1615,12 @@ const NoteEditor = () => {
         return
       }
 
-      /* Resize handle */
       const handle = e.target.closest('.ne-resize-handle')
       if (handle) {
         e.preventDefault()
         const wrapper = handle.closest('.ne-img-wrapper')
         if (!wrapper) return
         resizingRef.current = { wrapper, startX: e.clientX, startW: wrapper.offsetWidth || wrapper.querySelector('img').naturalWidth }
-        return
       }
     }
 
@@ -1148,7 +1628,6 @@ const NoteEditor = () => {
     return () => el.removeEventListener('mousedown', handleDelegation)
   }, [])
 
-  /* ── Image upload ── */
   const handleImageUpload = (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -1189,52 +1668,74 @@ const NoteEditor = () => {
     } else navigate('/dashboard')
   }
 
-  /* ─── Render ─── */
+  const MS_LINK = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200'
+
   if (loading) return (
     <div className="ne-root">
       <style>{styles}</style>
-      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+      <link rel="stylesheet" href={MS_LINK} />
       <Sidebar />
-      <div className="ne-main"><div className="ne-loading"><div className="ne-spinner" /><p>Loading note…</p></div></div>
+      <div className="ne-main">
+        <div className="ne-loading">
+          <div className="ne-spinner" />
+          <p>Loading note…</p>
+        </div>
+      </div>
     </div>
   )
 
   if (error) return (
     <div className="ne-root">
       <style>{styles}</style>
-      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+      <link rel="stylesheet" href={MS_LINK} />
       <Sidebar />
-      <div className="ne-main"><div className="ne-error">
-        <span className="material-symbols-outlined">error_outline</span><p>{error}</p>
-        <button className="ne-btn-primary" onClick={() => navigate('/dashboard')}>Back to Dashboard</button>
-      </div></div>
+      <div className="ne-main">
+        <div className="ne-error">
+          <span className="material-symbols-outlined" style={{ fontSize: 44, color: '#dc2626' }}>error_outline</span>
+          <p>{error}</p>
+          <button className="ne-btn-primary" onClick={() => navigate('/dashboard')}>
+            <span className="material-symbols-outlined ms">arrow_back</span> Back to Dashboard
+          </button>
+        </div>
+      </div>
     </div>
   )
 
   return (
     <div className="ne-root">
       <style>{styles}</style>
-      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+      <link rel="stylesheet" href={MS_LINK} />
       <Sidebar />
+
       <div className="ne-main">
 
-        {/* ── Header ── */}
+        {/* ── Header ───────────────────────────────────────── */}
         <header className="ne-header">
           <div className="ne-header-left">
-            <button className="ne-back-btn" onClick={handleCancel}><span className="material-symbols-outlined">arrow_back</span></button>
+            <button className="ne-back-btn" onClick={handleCancel} title="Back">
+              <span className="material-symbols-outlined">arrow_back</span>
+            </button>
             <span className="ne-header-title">Lavender Notes</span>
           </div>
+
           <div className="ne-header-center">
             <span className={`ne-badge ${isSaved ? 'ne-badge-saved' : 'ne-badge-unsaved'}`}>
               <span className="material-symbols-outlined ms">{isSaved ? 'check_circle' : 'edit_note'}</span>
               {isSaved ? 'Saved' : 'Unsaved'}
             </span>
-            <span className="ne-badge ne-badge-meta"><span className="material-symbols-outlined ms">schedule</span>{readTime} min</span>
-            <span className="ne-badge ne-badge-meta"><span className="material-symbols-outlined ms">folder</span>{category}</span>
+            <span className="ne-badge ne-badge-meta">
+              <span className="material-symbols-outlined ms">schedule</span>{readTime} min
+            </span>
+            <span className="ne-badge ne-badge-meta">
+              <span className="material-symbols-outlined ms">folder</span>{category}
+            </span>
             {collaborators.length > 0 && (
-              <span className="ne-badge ne-badge-meta"><span className="material-symbols-outlined ms">group</span>{collaborators.length}</span>
+              <span className="ne-badge ne-badge-meta">
+                <span className="material-symbols-outlined ms">group</span>{collaborators.length}
+              </span>
             )}
           </div>
+
           <div className="ne-header-right">
             <button className="ne-btn-ghost" onClick={() => setShowInviteModal(true)}>
               <span className="material-symbols-outlined ms">person_add</span>Invite
@@ -1251,9 +1752,15 @@ const NoteEditor = () => {
               </button>
               {showExportMenu && (
                 <div className="ne-export-menu">
-                  <button onClick={() => handleExport('md')}><span className="material-symbols-outlined" style={{fontSize:16}}>description</span>Markdown (.md)</button>
-                  <button onClick={() => handleExport('txt')}><span className="material-symbols-outlined" style={{fontSize:16}}>text_snippet</span>Plain Text (.txt)</button>
-                  <button onClick={() => handleExport('html')}><span className="material-symbols-outlined" style={{fontSize:16}}>code</span>HTML (.html)</button>
+                  <button onClick={() => handleExport('md')}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>description</span>Markdown (.md)
+                  </button>
+                  <button onClick={() => handleExport('txt')}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>text_snippet</span>Plain Text (.txt)
+                  </button>
+                  <button onClick={() => handleExport('html')}>
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>code</span>HTML (.html)
+                  </button>
                 </div>
               )}
             </div>
@@ -1265,7 +1772,7 @@ const NoteEditor = () => {
           </div>
         </header>
 
-        {/* ── Toolbar ── */}
+        {/* ── Toolbar ──────────────────────────────────────── */}
         <Toolbar
           onFormat={handleFormat}
           onSave={handleSave}
@@ -1276,17 +1783,35 @@ const NoteEditor = () => {
           saving={saving}
         />
 
-        {/* ── Scrollable body ── */}
+        {/* ── Body ─────────────────────────────────────────── */}
         <div className="ne-body">
           <div className="ne-page" style={{ backgroundColor: noteColor }}>
 
-            {/* Top meta row */}
+            {/* Meta row */}
             <div className="ne-page-top">
               <div className="ne-meta-row">
-                <span className="ne-meta-date">{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                <select className="ne-cat-select" value={category} onChange={e => { setCategory(e.target.value); setIsSaved(false) }}>
+                <span className="ne-meta-date">
+                  {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </span>
+                <select
+                  className="ne-cat-select"
+                  value={category}
+                  onChange={e => { setCategory(e.target.value); setIsSaved(false) }}
+                >
                   {availableCategories.map(c => <option key={c} value={c}>📁 {c}</option>)}
                 </select>
+                {folders.length > 0 && (
+                  <select
+                    className="ne-cat-select"
+                    value={selectedFolder || ''}
+                    onChange={e => { setSelectedFolder(e.target.value || null); setIsSaved(false) }}
+                  >
+                    <option value="">📂 No Folder</option>
+                    {folders.map(f => (
+                      <option key={f.id} value={f.id}>{f.icon || '📁'} {f.name}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             </div>
 
@@ -1294,21 +1819,27 @@ const NoteEditor = () => {
             <div className="ne-note-colors">
               <span className="ne-note-colors-label">Color</span>
               {colorOptions.map(c => (
-                <button key={c.value} className={`ne-note-chip${noteColor === c.value ? ' active' : ''}`}
-                  style={{ backgroundColor: c.value }} title={c.name}
-                  onClick={() => { setNoteColor(c.value); setIsSaved(false) }} />
+                <button
+                  key={c.value}
+                  className={`ne-note-chip${noteColor === c.value ? ' active' : ''}`}
+                  style={{ backgroundColor: c.value, border: c.value === '#ffffff' ? '1.5px solid #e8e0f4' : 'none' }}
+                  title={c.name}
+                  onClick={() => { setNoteColor(c.value); setIsSaved(false) }}
+                />
               ))}
             </div>
 
             {/* Title */}
             <input
-              className="ne-title-input" type="text"
+              className="ne-title-input"
+              type="text"
               placeholder="Title your thoughts…"
-              value={title} onChange={e => { setTitle(e.target.value); setIsSaved(false) }}
+              value={title}
+              onChange={e => { setTitle(e.target.value); setIsSaved(false) }}
               dir="ltr"
             />
 
-            {/* Editor + stats sidebar */}
+            {/* Editor + Stats */}
             <div className="ne-editor-row">
               <div
                 ref={editorRef}
@@ -1329,16 +1860,26 @@ const NoteEditor = () => {
                   <div className="ne-stat"><span>Words</span><span>{words}</span></div>
                   <div className="ne-stat"><span>Chars</span><span>{(content || '').replace(/<[^>]*>/g, '').length}</span></div>
                   <div className="ne-stat"><span>Read</span><span>{readTime} min</span></div>
-                  {id && id !== 'new' && <div className="ne-stat"><span>ID</span><span style={{ fontFamily: 'monospace', fontSize: '10px' }}>#{id.slice(-6)}</span></div>}
+                  {id && id !== 'new' && (
+                    <div className="ne-stat">
+                      <span>ID</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: '10px' }}>#{id.slice(-6)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Bottom strip */}
+            {/* Tags + Upload */}
             <div className="ne-bottom">
               <div className="ne-tags-row">
-                <input className="ne-tags-input" placeholder="Add tags (Enter to confirm)…"
-                  value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={handleAddTag} />
+                <input
+                  className="ne-tags-input"
+                  placeholder="Add tags (Enter to confirm)…"
+                  value={tagInput}
+                  onChange={e => setTagInput(e.target.value)}
+                  onKeyDown={handleAddTag}
+                />
                 {tags.map((t, i) => (
                   <span key={i} className="ne-tag">
                     {t}
@@ -1351,7 +1892,7 @@ const NoteEditor = () => {
 
               <div className="ne-upload-row">
                 <button className="ne-upload-btn" onClick={() => imageInputRef.current?.click()}>
-                  <span className="material-symbols-outlined ms">image</span>Add Image
+                  <span className="material-symbols-outlined ms">add_photo_alternate</span>Add Image
                 </button>
                 <button className="ne-upload-btn" onClick={() => fileInputRef.current?.click()}>
                   <span className="material-symbols-outlined ms">attach_file</span>Attach File
@@ -1374,16 +1915,17 @@ const NoteEditor = () => {
                 </div>
               )}
             </div>
+
           </div>
         </div>
       </div>
 
-      {/* ── Share Modal ── */}
+      {/* ── Share Modal ───────────────────────────────────── */}
       {showShareModal && (
         <div className="ne-overlay" onClick={() => setShowShareModal(false)}>
           <div className="ne-modal" onClick={e => e.stopPropagation()}>
             <h3>Share Note</h3>
-            <p>Copy this link to share the note with others.</p>
+            <p>Copy this link to share with others.</p>
             <div className="ne-modal-row">
               <input type="text" value={shareLink} readOnly />
               <button onClick={() => { navigator.clipboard.writeText(shareLink); showToast('Link copied!') }}>Copy</button>
@@ -1393,15 +1935,20 @@ const NoteEditor = () => {
         </div>
       )}
 
-      {/* ── Invite Modal ── */}
+      {/* ── Invite Modal ──────────────────────────────────── */}
       {showInviteModal && (
         <div className="ne-overlay" onClick={() => setShowInviteModal(false)}>
           <div className="ne-modal" onClick={e => e.stopPropagation()}>
             <h3>Invite Collaborators</h3>
             <p>Add people by email address.</p>
             <div className="ne-modal-row">
-              <input type="email" placeholder="Enter email address" value={inviteEmail}
-                onChange={e => setInviteEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleInvite()} />
+              <input
+                type="email"
+                placeholder="Enter email address"
+                value={inviteEmail}
+                onChange={e => setInviteEmail(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleInvite()}
+              />
               <button onClick={handleInvite}>Invite</button>
             </div>
             {collaborators.length > 0 && (
@@ -1409,8 +1956,8 @@ const NoteEditor = () => {
                 <h4>Current Collaborators</h4>
                 {collaborators.map((c, i) => (
                   <div key={i} className="ne-collab-item">
-                    <span style={{ fontSize: '13px', color: '#3d2f66', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.email}</span>
-                    <span className="ne-collab-role">{c.role}</span>
+                    <span style={{ fontSize: '12.5px', color: '#3d2f66', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.email}</span>
+                    <span className="ne-collab-role">{c.permission || 'viewer'}</span>
                     <button className="ne-collab-del" onClick={() => handleRemoveCollaborator(c.email)}>
                       <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>delete</span>
                     </button>
@@ -1423,32 +1970,29 @@ const NoteEditor = () => {
         </div>
       )}
 
-      {/* ── Import Modal ── */}
+      {/* ── Import Modal ──────────────────────────────────── */}
       {showImportModal && (
         <div className="ne-overlay" onClick={() => setShowImportModal(false)}>
           <div className="ne-modal" onClick={e => e.stopPropagation()}>
             <h3>Import File</h3>
-            <p>Import content from a .txt, .md, or .html file. This will replace the current editor content.</p>
+            <p>Import from .txt, .md, or .html. This will replace the current content.</p>
             <div
               className={`ne-import-zone${isDragOver ? ' drag' : ''}`}
               onDragOver={e => { e.preventDefault(); setIsDragOver(true) }}
               onDragLeave={() => setIsDragOver(false)}
-              onDrop={e => {
-                e.preventDefault(); setIsDragOver(false)
-                handleImportFile(e.dataTransfer.files[0])
-              }}
+              onDrop={e => { e.preventDefault(); setIsDragOver(false); handleImportFile(e.dataTransfer.files[0]) }}
               onClick={() => importInputRef.current?.click()}
             >
-              <span className="material-symbols-outlined">upload_file</span>
-              <p>Drag & drop a file here, or click to browse</p>
-              <p style={{ fontSize: '11px', marginTop: '6px', color: '#b0a0cc' }}>Supports .txt · .md · .html</p>
+              <span className="material-symbols-outlined ms">upload_file</span>
+              <p>Drag & drop or click to browse</p>
+              <p style={{ fontSize: '11px', marginTop: '5px', color: '#c4b3d8' }}>Supports .txt · .md · .html</p>
             </div>
             <button className="ne-modal-close" onClick={() => setShowImportModal(false)}>Cancel</button>
           </div>
         </div>
       )}
 
-      {/* ── Toast ── */}
+      {/* ── Toast ────────────────────────────────────────── */}
       {toast && (
         <div className="ne-toast">
           <span className="material-symbols-outlined ms">{toast.icon}</span>

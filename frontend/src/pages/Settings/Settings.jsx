@@ -35,18 +35,82 @@ const Settings = () => {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/auth/profile', {
+      const response = await fetch('http://localhost:5000/api/auth/preferences', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       const data = await response.json()
-      if (response.ok && data.success) {
-        setSettings(prev => ({
-          ...prev,
-          theme: data.user.theme || 'light'
-        }))
+      if (response.ok && data.success && data.preferences) {
+        setSettings({
+          theme: data.preferences.appearance?.theme || 'light',
+          fontSize: data.preferences.appearance?.fontSize || 'medium',
+          notifications: {
+            email: data.preferences.notifications?.email ?? true,
+            push: data.preferences.notifications?.push ?? true,
+            marketing: data.preferences.notifications?.marketing ?? false
+          },
+          privacy: {
+            showEmail: data.preferences.privacy?.showEmail ?? true,
+            allowSearch: data.preferences.privacy?.allowSearch ?? true
+          },
+          editor: {
+            autoSave: data.preferences.editor?.autoSave ?? true,
+            showWordCount: data.preferences.editor?.showWordCount ?? true,
+            defaultCategory: data.preferences.editor?.defaultCategory || 'Personal'
+          }
+        })
       }
     } catch (error) {
       console.error('Error fetching settings:', error)
+    }
+  }
+
+  const savePreference = async (type, data) => {
+    try {
+      let endpoint = ''
+      let body = {}
+      
+      switch(type) {
+        case 'theme':
+          endpoint = 'http://localhost:5000/api/auth/profile'
+          body = { theme: data }
+          break
+        case 'fontSize':
+          endpoint = 'http://localhost:5000/api/auth/font-size'
+          body = { fontSize: data }
+          break
+        case 'notifications':
+          endpoint = 'http://localhost:5000/api/auth/notifications'
+          body = data
+          break
+        case 'editor':
+          endpoint = 'http://localhost:5000/api/auth/editor-preferences'
+          body = data
+          break
+        case 'privacy':
+          endpoint = 'http://localhost:5000/api/auth/privacy'
+          body = data
+          break
+        default:
+          return
+      }
+      
+      const response = await fetch(endpoint, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      })
+      
+      const result = await response.json()
+      if (response.ok && result.success) {
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error(`Error saving ${type}:`, error)
+      return false
     }
   }
 
@@ -54,60 +118,84 @@ const Settings = () => {
     setSettings({ ...settings, theme })
     if (theme === 'dark') {
       document.documentElement.setAttribute('data-theme', 'dark')
+    } else if (theme === 'system') {
+      const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      if (systemPrefersDark) {
+        document.documentElement.setAttribute('data-theme', 'dark')
+      } else {
+        document.documentElement.removeAttribute('data-theme')
+      }
     } else {
       document.documentElement.removeAttribute('data-theme')
     }
     
-    try {
-      await fetch('http://localhost:5000/api/auth/profile', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ theme })
-      })
+    const success = await savePreference('theme', theme)
+    if (success) {
+      localStorage.setItem('theme', theme)
       setMessage({ type: 'success', text: 'Theme updated!' })
       setTimeout(() => setMessage({ type: '', text: '' }), 2000)
-    } catch (error) {
-      console.error('Error updating theme:', error)
     }
   }
 
-  const handleNotificationChange = (key) => {
-    setSettings({
-      ...settings,
-      notifications: {
-        ...settings.notifications,
-        [key]: !settings.notifications[key]
-      }
-    })
-    setMessage({ type: 'success', text: 'Notification settings saved!' })
-    setTimeout(() => setMessage({ type: '', text: '' }), 1500)
+  const handleFontSizeChange = async (fontSize) => {
+    setSettings({ ...settings, fontSize })
+    const success = await savePreference('fontSize', fontSize)
+    if (success) {
+      document.documentElement.style.fontSize = fontSize === 'small' ? '14px' : fontSize === 'large' ? '18px' : '16px'
+      setMessage({ type: 'success', text: 'Font size updated!' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 2000)
+    }
   }
 
-  const handlePrivacyChange = (key) => {
+  const handleNotificationChange = async (key) => {
+    const newNotifications = {
+      ...settings.notifications,
+      [key]: !settings.notifications[key]
+    }
     setSettings({
       ...settings,
-      privacy: {
-        ...settings.privacy,
-        [key]: !settings.privacy[key]
-      }
+      notifications: newNotifications
     })
-    setMessage({ type: 'success', text: 'Privacy settings saved!' })
-    setTimeout(() => setMessage({ type: '', text: '' }), 1500)
+    
+    const success = await savePreference('notifications', newNotifications)
+    if (success) {
+      setMessage({ type: 'success', text: 'Notification settings saved!' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 1500)
+    }
   }
 
-  const handleEditorChange = (key, value) => {
+  const handlePrivacyChange = async (key) => {
+    const newPrivacy = {
+      ...settings.privacy,
+      [key]: !settings.privacy[key]
+    }
     setSettings({
       ...settings,
-      editor: {
-        ...settings.editor,
-        [key]: value
-      }
+      privacy: newPrivacy
     })
-    setMessage({ type: 'success', text: 'Editor settings saved!' })
-    setTimeout(() => setMessage({ type: '', text: '' }), 1500)
+    
+    const success = await savePreference('privacy', newPrivacy)
+    if (success) {
+      setMessage({ type: 'success', text: 'Privacy settings saved!' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 1500)
+    }
+  }
+
+  const handleEditorChange = async (key, value) => {
+    const newEditor = {
+      ...settings.editor,
+      [key]: value
+    }
+    setSettings({
+      ...settings,
+      editor: newEditor
+    })
+    
+    const success = await savePreference('editor', newEditor)
+    if (success) {
+      setMessage({ type: 'success', text: 'Editor settings saved!' })
+      setTimeout(() => setMessage({ type: '', text: '' }), 1500)
+    }
   }
 
   // ✅ Export Notes
@@ -159,7 +247,6 @@ const Settings = () => {
         let importedCount = 0
         let failedCount = 0
         
-        // Import each note
         for (const note of importedData.notes) {
           try {
             await fetch('http://localhost:5000/api/notes', {
@@ -199,9 +286,20 @@ const Settings = () => {
     }
     reader.readAsText(file)
     
-    // Reset file input
     e.target.value = ''
   }
+
+  // Apply saved font size on mount
+  useEffect(() => {
+    const savedFontSize = settings.fontSize
+    if (savedFontSize === 'small') {
+      document.documentElement.style.fontSize = '14px'
+    } else if (savedFontSize === 'large') {
+      document.documentElement.style.fontSize = '18px'
+    } else {
+      document.documentElement.style.fontSize = '16px'
+    }
+  }, [])
 
   return (
     <div className="settings-page">
@@ -256,7 +354,7 @@ const Settings = () => {
                 <label>Font Size</label>
                 <select 
                   value={settings.fontSize}
-                  onChange={(e) => setSettings({...settings, fontSize: e.target.value})}
+                  onChange={(e) => handleFontSizeChange(e.target.value)}
                   className="setting-select"
                 >
                   <option value="small">Small</option>
@@ -362,7 +460,7 @@ const Settings = () => {
               </div>
             </div>
 
-            {/* ✅ Data Management - Export/Import Section */}
+            {/* Data Management - Export/Import Section */}
             <div className="settings-card">
               <h2>Data Management</h2>
               <div className="data-actions">
@@ -425,7 +523,7 @@ const Settings = () => {
               <h2>About</h2>
               <div className="about-info">
                 <p><strong>Lavender Notes</strong> v1.0.0</p>
-                <p>© 2025 Lavender Notes. All rights reserved.</p>
+                <p>© 2026 Lavender Notes. All rights reserved.</p>
                 <div className="about-links">
                   <a href="#">Terms of Service</a>
                   <a href="#">Privacy Policy</a>

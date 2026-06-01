@@ -16,6 +16,7 @@
   }
 }
 
+/* ==================== EMPTY STATE ==================== */
 .empty-notes {
   display: flex;
   flex-direction: column;
@@ -38,7 +39,7 @@
 
 .empty-notes-icon .material-symbols-outlined {
   font-size: 40px;
-  color: #674bb5;
+  color: var(--accent-hover);
   font-variation-settings: 'FILL' 1;
 }
 
@@ -46,12 +47,12 @@
   font-size: 20px;
   font-weight: 600;
   line-height: 28px;
-  color: #1d1a21;
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 
 .empty-notes p {
   font-size: 16px;
   line-height: 24px;
-  color: #494552;
+  color: var(--text-secondary);
 }

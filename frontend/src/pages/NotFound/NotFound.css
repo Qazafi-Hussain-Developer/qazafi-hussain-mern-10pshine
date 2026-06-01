@@ -178,3 +178,123 @@
     justify-content: center;
   }
 }
+
+
+/* Add to existing NotFound.css */
+
+/* Loading spinner for auth check */
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e0d4f5;
+  border-top-color: #a78bfa;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 20px auto;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Keyboard shortcut tip */
+.not-found-tip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  padding: 12px;
+  background: #f8f1fb;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #7a7583;
+}
+
+.not-found-tip .material-symbols-outlined {
+  font-size: 18px;
+  color: #a78bfa;
+}
+
+.not-found-tip kbd {
+  background: #1d1a21;
+  color: #ffffff;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 11px;
+  margin: 0 2px;
+}
+
+/* Better mobile responsiveness */
+@media (max-width: 640px) {
+  .not-found-card {
+    padding: 24px 20px;
+  }
+  
+  .not-found-code {
+    font-size: 64px;
+  }
+  
+  .not-found-title {
+    font-size: 20px;
+  }
+  
+  .not-found-message {
+    font-size: 13px;
+  }
+  
+  .not-found-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .btn-primary,
+  .btn-secondary {
+    justify-content: center;
+  }
+  
+  .not-found-links {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .not-found-tip {
+    margin-top: 20px;
+    padding: 10px;
+  }
+}
+
+/* Dark mode support */
+[data-theme="dark"] .not-found-card {
+  background-color: #1f1f3a;
+  border-color: #2d2d44;
+}
+
+[data-theme="dark"] .not-found-title {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .not-found-message {
+  color: #a0a0a0;
+}
+
+[data-theme="dark"] .not-found-tip {
+  background: #2a2a4a;
+  color: #a0a0a0;
+}
+
+[data-theme="dark"] .not-found-tip kbd {
+  background: #0f0f23;
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .not-found-links a {
+  color: #a0a0a0;
+}
+
+[data-theme="dark"] .not-found-links a:hover {
+  color: #c4b5fd;
+}

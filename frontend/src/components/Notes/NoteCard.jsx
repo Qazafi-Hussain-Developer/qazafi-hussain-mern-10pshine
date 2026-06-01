@@ -1,16 +1,20 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './NoteCard.css'
 
-const NoteCard = ({ note, onDelete, onEdit, onFavorite, onArchive, onPin }) => {
+const NoteCard = ({ note, onDelete, onEdit, onFavorite, onArchive, onPin, onRestore, isTrashed = false }) => {
   const navigate = useNavigate()
+  const [showMenu, setShowMenu] = useState(false)
 
   const handleClick = () => {
-    navigate(`/editor/${note.id}`)
+    if (!isTrashed) {
+      navigate(`/editor/${note.id}`)
+    }
   }
 
   const handleEdit = (e) => {
     e.stopPropagation()
+    if (isTrashed) return
     if (onEdit) {
       onEdit(note)
     } else {
@@ -25,23 +29,30 @@ const NoteCard = ({ note, onDelete, onEdit, onFavorite, onArchive, onPin }) => {
     }
   }
 
+  const handleRestore = (e) => {
+    e.stopPropagation()
+    if (onRestore) {
+      onRestore(note.id)
+    }
+  }
+
   const handleFavorite = (e) => {
     e.stopPropagation()
-    if (onFavorite) {
+    if (onFavorite && !isTrashed) {
       onFavorite(note.id)
     }
   }
 
   const handleArchive = (e) => {
     e.stopPropagation()
-    if (onArchive) {
+    if (onArchive && !isTrashed && !note.is_archived) {
       onArchive(note.id)
     }
   }
 
   const handlePin = (e) => {
     e.stopPropagation()
-    if (onPin) {
+    if (onPin && !isTrashed) {
       onPin(note.id)
     }
   }
@@ -58,7 +69,7 @@ const NoteCard = ({ note, onDelete, onEdit, onFavorite, onArchive, onPin }) => {
   const calculateReadTime = () => {
     const previewText = getPreviewText()
     const words = previewText.trim().split(/\s+/).filter(Boolean).length
-    const readTime = Math.max(1, Math.ceil(words / 200)) // Average 200 words per minute
+    const readTime = Math.max(1, Math.ceil(words / 200))
     return readTime
   }
 
@@ -89,14 +100,22 @@ const NoteCard = ({ note, onDelete, onEdit, onFavorite, onArchive, onPin }) => {
   }
 
   const readTime = calculateReadTime()
+  const deletedDate = note.deleted_at ? formatDate(note.deleted_at) : null
+
+  // Determine if we should show custom color (only for non-default colors)
+  const customColor = note.color && note.color !== '#ffffff' ? note.color : null
 
   return (
-    <div className={`note-card ${note.is_favorite ? 'favorite' : ''} ${note.is_pinned ? 'pinned' : ''}`} onClick={handleClick}>
+    <div 
+      className={`note-card ${note.is_favorite ? 'favorite' : ''} ${note.is_pinned ? 'pinned' : ''} ${isTrashed ? 'trashed' : ''}`} 
+      onClick={handleClick}
+      style={customColor ? { backgroundColor: customColor } : {}}
+    >
       <div className="note-card-header">
         <h3 className="note-title">{note.title || 'Untitled'}</h3>
         <div className="note-actions">
-          {/* 1. Pin Button - First */}
-          {onPin && (
+          {/* Pin Button */}
+          {onPin && !isTrashed && (
             <button 
               className={`note-action-btn pin-btn ${note.is_pinned ? 'active' : ''}`} 
               onClick={handlePin} 
@@ -108,8 +127,8 @@ const NoteCard = ({ note, onDelete, onEdit, onFavorite, onArchive, onPin }) => {
             </button>
           )}
           
-          {/* 2. Favorite Button */}
-          {onFavorite && (
+          {/* Favorite Button */}
+          {onFavorite && !isTrashed && (
             <button 
               className={`note-action-btn favorite-btn ${note.is_favorite ? 'active' : ''}`} 
               onClick={handleFavorite} 
@@ -121,21 +140,36 @@ const NoteCard = ({ note, onDelete, onEdit, onFavorite, onArchive, onPin }) => {
             </button>
           )}
           
-          {/* 3. Archive Button */}
-          {onArchive && !note.is_archived && (
+          {/* Archive Button */}
+          {onArchive && !isTrashed && !note.is_archived && (
             <button className="note-action-btn archive-btn" onClick={handleArchive} title="Archive">
               <span className="material-symbols-outlined">archive</span>
             </button>
           )}
           
-          {/* 4. Edit Button */}
-          <button className="note-action-btn edit-btn" onClick={handleEdit} title="Edit">
-            <span className="material-symbols-outlined">edit</span>
-          </button>
+          {/* Restore Button (for trashed notes) */}
+          {isTrashed && onRestore && (
+            <button className="note-action-btn restore-btn" onClick={handleRestore} title="Restore">
+              <span className="material-symbols-outlined">restore_from_trash</span>
+            </button>
+          )}
           
-          {/* 5. Delete Button - Last */}
-          <button className="note-action-btn delete-btn" onClick={handleDelete} title="Delete">
-            <span className="material-symbols-outlined">delete</span>
+          {/* Edit Button */}
+          {!isTrashed && (
+            <button className="note-action-btn edit-btn" onClick={handleEdit} title="Edit">
+              <span className="material-symbols-outlined">edit</span>
+            </button>
+          )}
+          
+          {/* Delete/Permanent Delete Button */}
+          <button 
+            className={`note-action-btn delete-btn ${isTrashed ? 'permanent-delete' : ''}`} 
+            onClick={handleDelete} 
+            title={isTrashed ? 'Permanently Delete' : 'Move to Trash'}
+          >
+            <span className="material-symbols-outlined">
+              {isTrashed ? 'delete_forever' : 'delete'}
+            </span>
           </button>
         </div>
       </div>
@@ -152,10 +186,29 @@ const NoteCard = ({ note, onDelete, onEdit, onFavorite, onArchive, onPin }) => {
           )}
         </div>
         <div className="note-meta">
-          <span className="read-time">📖 {readTime} min read</span>
-          <span className="note-date">{formatDate(note.updatedAt || note.createdAt)}</span>
+          {!isTrashed && (
+            <span className="read-time" title="Estimated reading time">
+              📖 {readTime} min read
+            </span>
+          )}
+          {isTrashed && deletedDate && (
+            <span className="deleted-date" title="Deleted date">
+              🗑️ Deleted {deletedDate}
+            </span>
+          )}
+          <span className="note-date" title={note.updatedAt ? 'Last updated' : 'Created'}>
+            {formatDate(note.updatedAt || note.createdAt)}
+          </span>
         </div>
       </div>
+
+      {/* Folder indicator if note is in a folder */}
+      {note.folder_name && !isTrashed && (
+        <div className="note-folder-indicator">
+          <span className="material-symbols-outlined">folder</span>
+          <span>{note.folder_name}</span>
+        </div>
+      )}
     </div>
   )
 }

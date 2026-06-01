@@ -1,5 +1,5 @@
 // src/App.jsx
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login/Login'
 import SignUp from './pages/SignUp/SignUp'
@@ -8,13 +8,29 @@ import NoteEditor from './pages/NoteEditor/NoteEditor'
 import Profile from './pages/Profile/Profile'
 import Settings from './pages/Settings/Settings'
 import Trash from './pages/Trash/Trash'
-import VerifyOTP from './pages/VerifyOTP/VerifyOTP'           // ✅ NEW
-import ForgotPassword from './pages/ForgotPassword/ForgotPassword'  // ✅ NEW
-import ResetPassword from './pages/ResetPassword/ResetPassword'    // ✅ NEW
-import NotFound from './pages/NotFound/NotFound'              // ✅ NEW - 404 Page
-import PrivateRoute from './components/PrivateRoute/PrivateRoute'  // ✅ NEW
+import VerifyOTP from './pages/VerifyOTP/VerifyOTP'
+import ForgotPassword from './pages/ForgotPassword/ForgotPassword'
+import ResetPassword from './pages/ResetPassword/ResetPassword'
+import NotFound from './pages/NotFound/NotFound'
+import PrivateRoute from './components/PrivateRoute/PrivateRoute'
 import { useAuth, AuthProvider } from './context/AuthContext'
 import './App.css'
+
+// Apply theme function
+const applyTheme = (theme) => {
+  if (theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark')
+  } else if (theme === 'system') {
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    if (systemPrefersDark) {
+      document.documentElement.setAttribute('data-theme', 'dark')
+    } else {
+      document.documentElement.removeAttribute('data-theme')
+    }
+  } else {
+    document.documentElement.removeAttribute('data-theme')
+  }
+}
 
 // Protected Route Component (kept for backward compatibility)
 const ProtectedRoute = ({ children }) => {
@@ -29,6 +45,25 @@ const ProtectedRoute = ({ children }) => {
 
 // Main App Content with Routes
 const AppRoutes = () => {
+  // Apply saved theme on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') || 'light'
+    applyTheme(savedTheme)
+  }, [])
+
+  // Listen for system theme changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = () => {
+      const currentTheme = localStorage.getItem('theme')
+      if (currentTheme === 'system') {
+        applyTheme('system')
+      }
+    }
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [])
+
   return (
     <div className="app">
       <Routes>
@@ -191,14 +226,13 @@ const AppRoutes = () => {
         
         {/* ========== 404 NOT FOUND ROUTE ========== */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<NotFound />} />  {/* ✅ Shows 404 page instead of redirect */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
   )
 }
 
 // Main App component with AuthProvider wrapper
-// ✅ CORRECT - Self-closing
 function App() {
   return (
     <AuthProvider>
