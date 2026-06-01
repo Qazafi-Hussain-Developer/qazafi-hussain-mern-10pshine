@@ -1,0 +1,11 @@
+/* src/styles/tailwind.css - ONLY for Tailwind */
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #674bb5;
+  --color-primary-container: #a78bfa;
+  --color-on-primary: #ffffff;
+  --color-secondary: #6b38d4;
+  --color-surface: #fdf7ff;
+  --color-on-surface: #1d1a21;
+}

@@ -160,4 +160,4 @@ const NoteCard = ({ note, onDelete, onEdit, onFavorite, onArchive, onPin }) => {
   )
 }
 
-export default NoteCard
+export default NoteCard;

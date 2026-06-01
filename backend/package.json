@@ -8,8 +8,9 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "init-db": "node src/config/initDb.js",
-    "test": "NODE_ENV=test mocha src/tests/**/*.test.js --exit --timeout 10000",
-    "test:watch": "NODE_ENV=test mocha src/tests/**/*.test.js --watch"
+    "test": "cross-env NODE_ENV=test mocha \"tests/*.test.js\" --exit --timeout 10000",
+    "test:watch": "cross-env NODE_ENV=test mocha \"tests/*.test.js\" --watch",
+    "test:coverage": "nyc mocha \"tests/*.test.js\" --exit --timeout 10000"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.6",
@@ -28,10 +29,14 @@
     "resend": "^6.12.4"
   },
   "devDependencies": {
-    "chai": "^5.1.2",
+    "@babel/preset-env": "^7.29.7",
+    "@babel/register": "^7.29.7",
+    "chai": "^5.3.3",
     "chai-http": "^5.1.1",
-    "mocha": "^11.1.0",
-    "nodemon": "^3.1.9"
+    "cross-env": "^7.0.3",
+    "mocha": "^11.7.6",
+    "nodemon": "^3.1.9",
+    "supertest": "^7.2.2"
   },
   "overrides": {
     "diff": ">=8.0.2",
