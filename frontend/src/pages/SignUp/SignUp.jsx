@@ -1,12 +1,10 @@
 // src/pages/SignUp/SignUp.jsx
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
 import './SignUp.css'
 
 const SignUp = () => {
   const navigate = useNavigate()
-  const { register } = useAuth() // ✅ Changed from login to register
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -51,18 +49,27 @@ const SignUp = () => {
     }
 
     try {
-      // ✅ Updated to use the register method from AuthContext
-      const result = await register({
-        name: formData.name,
-        email: formData.email,
-        password: formData.password
+      const response = await fetch('http://localhost:5000/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password
+        })
       })
 
-      if (result.success) {
-        // ✅ Redirect to OTP verification page instead of direct login
+      const data = await response.json()
+      console.log('Registration response:', data)
+
+      if (data.success) {
+        // Store email for OTP verification
+        localStorage.setItem('tempEmail', formData.email)
+        localStorage.setItem('tempName', formData.name)
+        // Redirect to OTP verification page
         navigate('/verify-otp')
       } else {
-        setError(result.message || 'Registration failed. Please try again.')
+        setError(data.message || 'Registration failed. Please try again.')
       }
     } catch (err) {
       console.error('Signup error:', err)
@@ -72,9 +79,7 @@ const SignUp = () => {
     }
   }
 
-  // ✅ Updated social signup to redirect to backend OAuth
   const handleSocialSignUp = async (provider) => {
-    // Redirect to backend OAuth route for signup
     window.location.href = `http://localhost:5000/api/auth/${provider.toLowerCase()}`
   }
 

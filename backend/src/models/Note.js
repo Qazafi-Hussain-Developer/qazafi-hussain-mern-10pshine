@@ -17,4 +17,4 @@ CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id);
 CREATE INDEX IF NOT EXISTS idx_notes_category ON notes(category);
 `;
 
-module.exports = { createNoteTable };
+export default { createNoteTable };
